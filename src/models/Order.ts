@@ -8,7 +8,7 @@ import {
   pricingSummarySchema,
   paymentSchema,
   addressSchema,
-} from "#src/models/schemas/index";
+} from "#src/models/schemas";
 
 export interface IOrder extends Document {
   orderNumber: string;

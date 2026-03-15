@@ -4,6 +4,8 @@
   "description": "Express.js Clean Architecture Backend",
   "main": "dist/server.js",
   "imports": {
+    "#src/models/schemas": "./dist/models/schemas/index.js",
+    "#src/jobs/mocks": "./dist/jobs/mocks/index.js",
     "#src/*": {
       "default": "./dist/*.js"
     }
