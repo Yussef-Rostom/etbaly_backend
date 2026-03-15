@@ -1,6 +1,7 @@
 import { User, IUser } from "../../../models/User";
 import { AppError } from "../../../utils/AppError";
-import { UpdateProfileInput } from "../validators/userValidators";
+import { uploadImage } from "../../../utils/cloudinary";
+import { UpdateProfileInput, ChangePasswordInput } from "../validators/userValidators";
 
 export class UserService {
   /** Retrieves a user's full profile information. */
@@ -57,7 +58,7 @@ export class UserService {
   /** Changes a user's password and revokes all active sessions. */
   static async changePassword(
     userId: string,
-    data: import("@/modules/user/validators/userValidators").ChangePasswordInput,
+    data: ChangePasswordInput,
   ): Promise<void> {
     const user = await User.findById(userId).select("+password +refreshTokens");
     if (!user) {
@@ -86,7 +87,6 @@ export class UserService {
       throw new AppError("User not found.", 404);
     }
 
-    const { uploadImage } = await import("@/utils/cloudinary");
     const avatarUrl = await uploadImage(fileBuffer, `etbaly/avatars/${userId}`);
 
     user.profile.avatarUrl = avatarUrl;
