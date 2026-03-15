@@ -1,10 +1,10 @@
-import { Product, IProduct } from "../../../models/Product";
-import { Design } from "../../../models/Design";
-import { AppError } from "../../../utils/AppError";
+import { Product, IProduct } from "#src/models/Product";
+import { Design } from "#src/models/Design";
+import { AppError } from "#src/utils/AppError";
 import {
   CreateProductInput,
   UpdateProductInput,
-} from "../validators/adminProductValidators";
+} from "#src/modules/admin/validators/adminProductValidators";
 
 export class AdminProductService {
   static async getAllProducts(): Promise<IProduct[]> {

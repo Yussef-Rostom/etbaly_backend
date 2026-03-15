@@ -1,7 +1,7 @@
-import { User, IUser } from "../../../models/User";
-import { AppError } from "../../../utils/AppError";
-import { uploadImage } from "../../../utils/cloudinary";
-import { UpdateProfileInput, ChangePasswordInput } from "../validators/userValidators";
+import { User, IUser } from "#src/models/User";
+import { AppError } from "#src/utils/AppError";
+import { uploadImage } from "#src/utils/cloudinary";
+import { UpdateProfileInput, ChangePasswordInput } from "#src/modules/user/validators/userValidators";
 
 export class UserService {
   /** Retrieves a user's full profile information. */

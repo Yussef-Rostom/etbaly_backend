@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "description": "Express.js Clean Architecture Backend",
   "main": "dist/server.js",
+  "imports": {
+    "#src/*": {
+      "default": "./dist/*.js"
+    }
+  },
   "scripts": {
     "dev": "tsx watch --include src src/server.ts",
     "dev:api": "tsx watch --include src src/server.ts",

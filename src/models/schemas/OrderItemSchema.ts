@@ -2,7 +2,7 @@ import { Schema } from "mongoose";
 import {
   ICustomizationParams,
   customizationParamsSchema,
-} from "./CustomizationParamsSchema";
+} from "#src/models/schemas/CustomizationParamsSchema";
 
 export interface IOrderItem {
   itemType: "Product" | "Design";

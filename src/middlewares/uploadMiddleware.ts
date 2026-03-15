@@ -1,4 +1,4 @@
 import multer from "multer";
-import { multerConfig } from "../configs/multerConfig";
+import { multerConfig } from "#src/configs/multerConfig";
 
 export const uploadMedia = multer(multerConfig);

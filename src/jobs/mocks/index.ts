@@ -1,5 +1,5 @@
-import { processSlicingJob } from "./slicingMockWorker";
-import { processPrintingJob } from "./printingMockWorker";
+import { processSlicingJob } from "#src/jobs/mocks/slicingMockWorker";
+import { processPrintingJob } from "#src/jobs/mocks/printingMockWorker";
 
 // Type definition for a mock worker handler function
 type MockWorkerHandler = (data: any) => Promise<void>;

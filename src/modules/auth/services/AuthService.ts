@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 import jsonwebtoken from "jsonwebtoken";
 import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
-import { User, IUser } from "../../../models/User";
-import { AppError } from "../../../utils/AppError";
-import { env } from "../../../configs/envConfig";
+import { User, IUser } from "#src/models/User";
+import { AppError } from "#src/utils/AppError";
+import { env } from "#src/configs/envConfig";
 import {
   RegisterInput,
   LoginInput,
@@ -12,8 +12,8 @@ import {
   ForgotPasswordInput,
   ResetPasswordInput,
   GoogleAuthInput,
-} from "../validators/authValidators";
-import { sendEmail } from "../../../utils/sendEmail";
+} from "#src/modules/auth/validators/authValidators";
+import { sendEmail } from "#src/utils/sendEmail";
 
 const { sign } = jsonwebtoken;
 const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);

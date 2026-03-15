@@ -3,14 +3,14 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import authRoutes from "./modules/auth/authRoutes";
-import userRoutes from "./modules/user/userRoutes";
-import adminRoutes from "./modules/admin/adminRoutes";
-import catalogRoutes from "./modules/catalog/catalogRoutes";
-import manufacturingRoutes from "./modules/manufacturing/manufacturingRoutes";
-import { globalErrorHandler } from "./middlewares/errorHandler";
-import { AppError } from "./utils/AppError";
-import { env } from "./configs/envConfig";
+import authRoutes from "#src/modules/auth/authRoutes";
+import userRoutes from "#src/modules/user/userRoutes";
+import adminRoutes from "#src/modules/admin/adminRoutes";
+import catalogRoutes from "#src/modules/catalog/catalogRoutes";
+import manufacturingRoutes from "#src/modules/manufacturing/manufacturingRoutes";
+import { globalErrorHandler } from "#src/middlewares/errorHandler";
+import { AppError } from "#src/utils/AppError";
+import { env } from "#src/configs/envConfig";
 
 const app = express();
 

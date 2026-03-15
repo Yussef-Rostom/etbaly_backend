@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { env } from "./envConfig";
+import { env } from "#src/configs/envConfig";
 
 export const connectDB = async (): Promise<void> => {
   if (mongoose.connection.readyState >= 1) {

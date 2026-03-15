@@ -1,4 +1,4 @@
-import { ManufacturingService } from "../../modules/manufacturing/services/ManufacturingService";
+import { ManufacturingService } from "#src/modules/manufacturing/services/ManufacturingService";
 
 export const processSlicingJob = async (data: any) => {
   const { manufacturingJobId, fileName } = data;

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { catchAsync } from "../../../utils/catchAsync";
-import { dispatchJob } from "../../../utils/queueManager";
+import { catchAsync } from "#src/utils/catchAsync";
+import { dispatchJob } from "#src/utils/queueManager";
 
 export class ManufacturingController {
   /**

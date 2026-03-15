@@ -1,6 +1,6 @@
-import { Product, IProduct } from "../../../models/Product";
-import { AppError } from "../../../utils/AppError";
-import { APIFeatures } from "../../../utils/apiFeatures";
+import { Product, IProduct } from "#src/models/Product";
+import { AppError } from "#src/utils/AppError";
+import { APIFeatures } from "#src/utils/apiFeatures";
 
 export class CatalogService {
   /** Retrieves all active products with pagination, sorting, and search capabilities. */

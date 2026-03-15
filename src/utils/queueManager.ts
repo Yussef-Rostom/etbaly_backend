@@ -1,5 +1,5 @@
 // Mock implementation for Vercel/Serverless environments
-import { processMockJob } from "../jobs/mocks";
+import { processMockJob } from "#src/jobs/mocks";
 
 export interface MockJobsOptions {
   attempts?: number;

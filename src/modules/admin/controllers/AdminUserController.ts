@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AdminUserService } from "../services/AdminUserService";
-import { catchAsync } from "../../../utils/catchAsync";
-import { sendSuccess } from "../../../utils/apiResponse";
+import { AdminUserService } from "#src/modules/admin/services/AdminUserService";
+import { catchAsync } from "#src/utils/catchAsync";
+import { sendSuccess } from "#src/utils/apiResponse";
 
 export class AdminUserController {
   static getAllUsers = catchAsync(async (_req: Request, res: Response) => {

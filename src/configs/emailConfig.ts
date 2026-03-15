@@ -1,4 +1,4 @@
-import { env } from "./envConfig";
+import { env } from "#src/configs/envConfig";
 
 export const emailConfig = {
   service: "gmail",

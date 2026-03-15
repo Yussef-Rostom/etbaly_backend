@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { UserController } from "./controllers/UserController";
-import { authMiddleware } from "../../middlewares/authMiddleware";
-import { validate } from "../../middlewares/validate";
+import { UserController } from "#src/modules/user/controllers/UserController";
+import { authMiddleware } from "#src/middlewares/authMiddleware";
+import { validate } from "#src/middlewares/validate";
 import {
   updateProfileSchema,
   changePasswordSchema,
-} from "./validators/userValidators";
-import { uploadMedia } from "../../middlewares/uploadMiddleware";
+} from "#src/modules/user/validators/userValidators";
+import { uploadMedia } from "#src/middlewares/uploadMiddleware";
 
 const router = Router();
 

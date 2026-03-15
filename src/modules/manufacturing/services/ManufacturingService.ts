@@ -1,4 +1,4 @@
-import { ManufacturingJob } from "../../../models/ManufacturingJob";
+import { ManufacturingJob } from "#src/models/ManufacturingJob";
 
 export class ManufacturingService {
   /**

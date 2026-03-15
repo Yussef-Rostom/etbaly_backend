@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { AuthController } from "./controllers/AuthController";
-import { validate } from "../../middlewares/validate";
+import { AuthController } from "#src/modules/auth/controllers/AuthController";
+import { validate } from "#src/middlewares/validate";
 import {
   registerSchema,
   loginSchema,
@@ -9,7 +9,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   googleAuthSchema,
-} from "./validators/authValidators";
+} from "#src/modules/auth/validators/authValidators";
 
 const router = Router();
 
