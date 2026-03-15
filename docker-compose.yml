@@ -1,0 +1,70 @@
+# =========================================================
+# Etb3haly — Local Development Stack
+# =========================================================
+# Usage:
+#   docker compose up --build        (first time / after Dockerfile changes)
+#   docker compose up                (subsequent runs)
+#   docker compose down -v           (stop + remove volumes)
+# =========================================================
+
+services:
+  # -------------------------------------------------------
+  # Redis — Message broker for BullMQ
+  # -------------------------------------------------------
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------
+  # API Server — Express.js main process
+  # -------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run dev:api
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app # Bind-mount source code for live-reloading
+      - /app/node_modules # Anonymous volume — preserves container's node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # -------------------------------------------------------
+  # Worker — BullMQ background processor
+  # -------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run dev:worker
+    volumes:
+      - .:/app # Same bind-mount as API for live-reloading
+      - /app/node_modules # Same anonymous volume trick
+    environment:
+      - NODE_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
