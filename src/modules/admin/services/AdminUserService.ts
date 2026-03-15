@@ -1,6 +1,6 @@
-import { User, IUser } from "@/models/User";
-import { AppError } from "@/utils/AppError";
-import { UpdateRoleInput } from "@/modules/admin/validators/adminUserValidators";
+import { User, IUser } from "../../../models/User";
+import { AppError } from "../../../utils/AppError";
+import { UpdateRoleInput } from "../validators/adminUserValidators";
 
 export class AdminUserService {
   static async getAllUsers(): Promise<Partial<IUser>[]> {

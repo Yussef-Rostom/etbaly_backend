@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { ManufacturingController } from "./controllers/manufacturingController";
-import { validate } from "@/middlewares/validate";
+import { validate } from "../../middlewares/validate";
 import { executeJobSchema } from "./validators/manufacturingValidators";
-import { authMiddleware } from "@/middlewares/authMiddleware";
+import { authMiddleware } from "../../middlewares/authMiddleware";
 
 const router = Router();
 

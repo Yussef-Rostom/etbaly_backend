@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { AppError } from "@/utils/AppError";
-import { env } from "@/configs/envConfig";
-import { sendError } from "@/utils/apiResponse";
+import { AppError } from "../utils/AppError";
+import { env } from "../configs/envConfig";
+import { sendError } from "../utils/apiResponse";
 
 const handleCastError = (err: any): AppError => {
   const message = `Invalid ${err.path}: ${err.value}`;

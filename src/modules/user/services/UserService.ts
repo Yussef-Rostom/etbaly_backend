@@ -1,6 +1,6 @@
-import { User, IUser } from "@/models/User";
-import { AppError } from "@/utils/AppError";
-import { UpdateProfileInput } from "@/modules/user/validators/userValidators";
+import { User, IUser } from "../../../models/User";
+import { AppError } from "../../../utils/AppError";
+import { UpdateProfileInput } from "../validators/userValidators";
 
 export class UserService {
   /** Retrieves a user's full profile information. */

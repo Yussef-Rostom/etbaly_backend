@@ -1,5 +1,5 @@
-import cloudinary from "@/configs/cloudinaryConfig";
-import { AppError } from "@/utils/AppError";
+import cloudinary from "../configs/cloudinaryConfig";
+import { AppError } from "./AppError";
 
 export const uploadImage = async (
   fileBuffer: Buffer,

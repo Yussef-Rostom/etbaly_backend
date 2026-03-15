@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jsonwebtoken from "jsonwebtoken";
-import { env } from "@/configs/envConfig";
-import { AppError } from "@/utils/AppError";
-import { User } from "@/models/User";
-import { catchAsync } from "@/utils/catchAsync";
+import { env } from "../configs/envConfig";
+import { AppError } from "../utils/AppError";
+import { User } from "../models/User";
+import { catchAsync } from "../utils/catchAsync";
 
 const { verify } = jsonwebtoken;
 

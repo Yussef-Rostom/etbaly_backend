@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { UserService } from "@/modules/user/services/UserService";
-import { catchAsync } from "@/utils/catchAsync";
-import { sendSuccess, sendError } from "@/utils/apiResponse";
+import { UserService } from "../services/UserService";
+import { catchAsync } from "../../../utils/catchAsync";
+import { sendSuccess, sendError } from "../../../utils/apiResponse";
 
 export class UserController {
   static getMe = catchAsync(async (req: Request, res: Response) => {

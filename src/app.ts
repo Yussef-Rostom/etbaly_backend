@@ -3,14 +3,14 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import authRoutes from "@/modules/auth/authRoutes";
-import userRoutes from "@/modules/user/userRoutes";
-import adminRoutes from "@/modules/admin/adminRoutes";
-import catalogRoutes from "@/modules/catalog/catalogRoutes";
-import manufacturingRoutes from "@/modules/manufacturing/manufacturingRoutes";
-import { globalErrorHandler } from "@/middlewares/errorHandler";
-import { AppError } from "@/utils/AppError";
-import { env } from "@/configs/envConfig";
+import authRoutes from "./modules/auth/authRoutes";
+import userRoutes from "./modules/user/userRoutes";
+import adminRoutes from "./modules/admin/adminRoutes";
+import catalogRoutes from "./modules/catalog/catalogRoutes";
+import manufacturingRoutes from "./modules/manufacturing/manufacturingRoutes";
+import { globalErrorHandler } from "./middlewares/errorHandler";
+import { AppError } from "./utils/AppError";
+import { env } from "./configs/envConfig";
 
 const app = express();
 
@@ -19,6 +19,10 @@ app.use(cors());
 app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/favicon.ico", (_req: Request, res: Response) => {
+  res.status(204).end();
+});
 
 app.get("/", (_req: Request, res: Response) => {
   res.send(`

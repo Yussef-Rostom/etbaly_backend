@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { CatalogService } from "@/modules/catalog/services/CatalogService";
-import { catchAsync } from "@/utils/catchAsync";
-import { sendSuccess } from "@/utils/apiResponse";
+import { CatalogService } from "../services/CatalogService";
+import { catchAsync } from "../../../utils/catchAsync";
+import { sendSuccess } from "../../../utils/apiResponse";
 
 export class CatalogController {
   static getAllProducts = catchAsync(async (req: Request, res: Response) => {

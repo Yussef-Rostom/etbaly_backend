@@ -1,8 +1,8 @@
-import app from "@/app";
-import { connectDB, disconnectDB } from "@/configs/databaseConfig";
-import { env } from "@/configs/envConfig";
-import { startCleanupJob } from "@/jobs/cron/cleanupUnverifiedUsers";
-import { setupGracefulShutdown } from "@/utils/processManager";
+import app from "./app";
+import { connectDB, disconnectDB } from "./configs/databaseConfig";
+import { env } from "./configs/envConfig";
+import { startCleanupJob } from "./jobs/cron/cleanupUnverifiedUsers";
+import { setupGracefulShutdown } from "./utils/processManager";
 
 const startServer = async (): Promise<void> => {
   await connectDB();

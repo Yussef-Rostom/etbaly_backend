@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AdminProductService } from "@/modules/admin/services/AdminProductService";
-import { catchAsync } from "@/utils/catchAsync";
-import { sendSuccess } from "@/utils/apiResponse";
+import { AdminProductService } from "../services/AdminProductService";
+import { catchAsync } from "../../../utils/catchAsync";
+import { sendSuccess } from "../../../utils/apiResponse";
 
 export class AdminProductController {
   static getAllProducts = catchAsync(async (req: Request, res: Response) => {

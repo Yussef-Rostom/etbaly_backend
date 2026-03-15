@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { AdminUserController } from "@/modules/admin/controllers/AdminUserController";
-import { AdminProductController } from "@/modules/admin/controllers/AdminProductController";
-import { authMiddleware } from "@/middlewares/authMiddleware";
-import { restrictTo } from "@/middlewares/roleMiddleware";
-import { validate } from "@/middlewares/validate";
-import { updateRoleSchema } from "@/modules/admin/validators/adminUserValidators";
+import { AdminUserController } from "./controllers/AdminUserController";
+import { AdminProductController } from "./controllers/AdminProductController";
+import { authMiddleware } from "../../middlewares/authMiddleware";
+import { restrictTo } from "../../middlewares/roleMiddleware";
+import { validate } from "../../middlewares/validate";
+import { updateRoleSchema } from "./validators/adminUserValidators";
 import {
   createProductSchema,
   updateProductSchema,
-} from "@/modules/admin/validators/adminProductValidators";
+} from "./validators/adminProductValidators";
 
 const router = Router();
 

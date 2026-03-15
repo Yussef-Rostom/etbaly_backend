@@ -6,7 +6,7 @@ import {
   IProfile,
   addressSchema,
   profileSchema,
-} from "@/models/schemas";
+} from "./schemas";
 
 export interface IUser extends Document {
   email: string;

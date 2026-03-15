@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthService } from "@/modules/auth/services/AuthService";
-import { catchAsync } from "@/utils/catchAsync";
-import { sendSuccess } from "@/utils/apiResponse";
+import { AuthService } from "../services/AuthService";
+import { catchAsync } from "../../../utils/catchAsync";
+import { sendSuccess } from "../../../utils/apiResponse";
 
 export class AuthController {
   static register = catchAsync(async (req: Request, res: Response) => {
