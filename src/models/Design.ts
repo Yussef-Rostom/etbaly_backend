@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { IDesignMetadata, designMetadataSchema } from "#src/models/schemas";
+import { IDesignMetadata, designMetadataSchema } from "#src/models/schemas/index";
 
 export interface IDesign extends Document {
   name: string;
