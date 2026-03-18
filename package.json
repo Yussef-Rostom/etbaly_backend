@@ -2,19 +2,19 @@
   "name": "etbaly-backend",
   "version": "1.0.0",
   "description": "Express.js Clean Architecture Backend",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "imports": {
-    "#src/models/schemas": "./dist/models/schemas/index.js",
-    "#src/jobs/mocks": "./dist/jobs/mocks/index.js",
+    "#src/models/schemas": "./dist/src/models/schemas/index.js",
+    "#src/jobs/mocks": "./dist/src/jobs/mocks/index.js",
     "#src/*": {
-      "default": "./dist/*.js"
+      "default": "./dist/src/*.js"
     }
   },
   "scripts": {
     "dev": "tsx watch --include src src/server.ts",
     "dev:api": "tsx watch --include src src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "test": "jest --runInBand"
   },
   "jest": {
