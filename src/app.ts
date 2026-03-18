@@ -8,6 +8,7 @@ import userRoutes from "#src/modules/user/userRoutes";
 import adminRoutes from "#src/modules/admin/adminRoutes";
 import catalogRoutes from "#src/modules/catalog/catalogRoutes";
 import manufacturingRoutes from "#src/modules/manufacturing/manufacturingRoutes";
+import cartRoutes from "#src/modules/cart/cartRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -68,6 +69,7 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/catalog", catalogRoutes);
 app.use("/api/v1/manufacturing", manufacturingRoutes);
+app.use("/api/v1/cart", cartRoutes);
 
 app.use((req: Request, _res: Response) => {
   throw new AppError(

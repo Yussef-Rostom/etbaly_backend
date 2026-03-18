@@ -6,6 +6,7 @@ export interface IProfile {
   phoneNumber?: string;
   bio?: string;
   avatarUrl?: string;
+  avatarDriveFileId?: string;
 }
 
 export const profileSchema = new Schema<IProfile>(
@@ -34,6 +35,10 @@ export const profileSchema = new Schema<IProfile>(
       maxlength: [500, "Bio must be at most 500 characters"],
     },
     avatarUrl: {
+      type: String,
+      trim: true,
+    },
+    avatarDriveFileId: {
       type: String,
       trim: true,
     },

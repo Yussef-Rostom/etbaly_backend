@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import jsonwebtoken from "jsonwebtoken";
 import crypto from "crypto";
-import { OAuth2Client } from "google-auth-library";
+import { admin } from "#src/configs/firebaseConfig";
 import { User, IUser } from "#src/models/User";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -16,7 +16,6 @@ import {
 import { sendEmail } from "#src/utils/sendEmail";
 
 const { sign } = jsonwebtoken;
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
 export class AuthService {
   private static generateTokens(userId: string): {
@@ -129,41 +128,40 @@ export class AuthService {
     };
   }
 
-  /** Authenticates or registers a user via Google OAuth Identity Token. */
+  /** Authenticates or registers a user via Firebase ID Token. */
   static async googleAuth(data: GoogleAuthInput): Promise<{
     message: string;
     user: Partial<IUser>;
     accessToken: string;
     refreshToken: string;
   }> {
-    let ticket;
+    let firebasePayload: any;
     try {
-      ticket = await googleClient.verifyIdToken({
-        idToken: data.idToken,
-        audience: env.GOOGLE_CLIENT_ID,
-      });
-    } catch (error) {
+      firebasePayload = await admin.auth().verifyIdToken(data.idToken);
+    } catch (error: any) {
+      console.log("---------------------------------");
+      console.log(error.message);
+      console.log("---------------------------------");
       throw new AppError("Invalid Google ID Token", 401);
     }
 
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
+    const userEmail = firebasePayload.email;
+    if (!userEmail) {
       throw new AppError("Failed to fetch user email from Google", 400);
     }
 
-    const email = payload.email.toLowerCase().trim();
+    const email = firebasePayload.email.toLowerCase().trim();
     let user = await User.findOne({ email }).select("+refreshTokens");
 
     if (!user) {
       const secureRandomPassword = crypto.randomBytes(32).toString("hex");
-
       user = await User.create({
         email,
         password: secureRandomPassword,
         profile: {
-          firstName: payload.given_name || "Google",
-          lastName: payload.family_name || "User",
-          avatarUrl: payload.picture || undefined,
+          firstName: firebasePayload.name?.split(" ")[0] || "Google",
+          lastName: firebasePayload.name?.split(" ").slice(1).join(" ") || "User",
+          avatarUrl: firebasePayload.picture || undefined,
         },
         isVerified: true,
       });

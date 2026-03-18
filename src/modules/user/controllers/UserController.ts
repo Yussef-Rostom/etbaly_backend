@@ -41,6 +41,7 @@ export class UserController {
     const avatarUrl = await UserService.uploadAvatar(
       req.user._id.toString(),
       req.file.buffer,
+      req.file.mimetype,
     );
 
     sendSuccess(res, 200, "Avatar uploaded successfully.", {

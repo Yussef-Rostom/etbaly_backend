@@ -1,7 +1,12 @@
 import { User, IUser } from "#src/models/User";
 import { AppError } from "#src/utils/AppError";
-import { uploadImage } from "#src/utils/cloudinary";
+import { uploadAvatarImage, deleteDriveFile } from "#src/utils/drive";
 import { UpdateProfileInput, ChangePasswordInput } from "#src/modules/user/validators/userValidators";
+
+const safeProfileOf = (profile: IUser["profile"]) => {
+  const { avatarDriveFileId: _, ...safe } = { ...profile };
+  return safe;
+};
 
 export class UserService {
   /** Retrieves a user's full profile information. */
@@ -15,7 +20,7 @@ export class UserService {
       _id: user._id,
       email: user.email,
       role: user.role,
-      profile: user.profile,
+      profile: safeProfileOf(user.profile),
       savedAddresses: user.savedAddresses,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
@@ -47,7 +52,7 @@ export class UserService {
       _id: user._id,
       email: user.email,
       role: user.role,
-      profile: user.profile,
+      profile: safeProfileOf(user.profile),
       savedAddresses: user.savedAddresses,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
@@ -77,21 +82,35 @@ export class UserService {
     await user.save();
   }
 
-  /** Uploads a new avatar image to Cloudinary and updates the user's profile. */
+  /** Uploads a new avatar image to Google Drive and updates the user's profile. */
   static async uploadAvatar(
     userId: string,
     fileBuffer: Buffer,
+    mimeType: string,
   ): Promise<string> {
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError("User not found.", 404);
     }
 
-    const avatarUrl = await uploadImage(fileBuffer, `etbaly/avatars/${userId}`);
+    if (user.profile.avatarDriveFileId) {
+      try {
+        await deleteDriveFile(user.profile.avatarDriveFileId);
+      } catch (err) {
+        console.error("Failed to delete old avatar from Drive:", err);
+      }
+    }
 
-    user.profile.avatarUrl = avatarUrl;
+    const { fileId, publicUrl } = await uploadAvatarImage(
+      fileBuffer,
+      `avatar-${userId}-${Date.now()}.jpg`,
+      mimeType,
+    );
+
+    user.profile.avatarUrl = publicUrl;
+    user.profile.avatarDriveFileId = fileId;
     await user.save();
 
-    return avatarUrl;
+    return publicUrl;
   }
 }

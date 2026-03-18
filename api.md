@@ -7,6 +7,8 @@
 3. [User API (`/api/v1/users`)](#user-api)
 4. [Catalog API (`/api/v1/catalog`)](#catalog-api)
 5. [Admin API (`/api/v1/admin`)](#admin-api)
+6. [Cart API (`/api/v1/cart`)](#cart-api)
+7. [Manufacturing API (`/api/v1/manufacturing`)](#manufacturing-api)
 
 ---
 
@@ -163,7 +165,7 @@ Updates user profile information.
 
 Changes the user's current password using their existing password for validation.
 
-- **URL:** `/change-password`
+- **URL:** `/me/password`
 - **Method:** `PATCH`
 - **Request Body:**
   - `currentPassword` (string, required)
@@ -172,10 +174,10 @@ Changes the user's current password using their existing password for validation
 
 ### 4. Upload Avatar
 
-Uploads a profile picture to Cloudinary and updates the user profile.
+Uploads a profile picture to Google Drive and updates the user profile.
 
-- **URL:** `/avatar`
-- **Method:** `POST`
+- **URL:** `/me/avatar`
+- **Method:** `PATCH`
 - **Content-Type:** `multipart/form-data`
 - **Body Form-Data:**
   - `avatar` (file, required): Image file (jpeg, jpg, png). Max 2MB.
@@ -324,3 +326,169 @@ Permanently deletes a product.
 - **Method:** `DELETE`
 - **URL Params:** `id` (ObjectId, required)
 - **Success Response:** `200 OK`
+
+---
+
+## Cart API
+
+Base URL: `/api/v1/cart`
+
+**Authentication:** All endpoints protected by `authMiddleware`. Uses Bearer token (`Authorization: Bearer <accessToken>`).
+
+The cart is a persistent staging area for items before checkout. Each user has at most one cart. Abandoned carts are automatically purged after 30 days via a MongoDB TTL index.
+
+### 1. Get Cart
+
+Returns the authenticated user's current cart. If no cart exists, returns an empty cart shape.
+
+- **URL:** `/`
+- **Method:** `GET`
+- **Success Response:** `200 OK` (Returns `{ cart }`).
+
+```json
+{
+  "success": true,
+  "message": "Cart fetched successfully",
+  "data": {
+    "cart": {
+      "userId": "...",
+      "items": [],
+      "pricingSummary": {
+        "subtotal": 0,
+        "taxAmount": 0,
+        "shippingCost": 0,
+        "discountAmount": 0,
+        "total": 0
+      },
+      "expiresAt": "..."
+    }
+  }
+}
+```
+
+---
+
+### 2. Add Item to Cart
+
+Adds a `Product` or `Design` item to the cart. If an item with the same `itemRefId`, `materialId`, and `customization` fingerprint already exists, its quantity is incremented instead of creating a duplicate.
+
+- **URL:** `/items`
+- **Method:** `POST`
+- **Request Body:**
+  - `itemType` (string, required): `"Product"` or `"Design"`
+  - `itemRefId` (string, required): ObjectId of the Product or Design
+  - `quantity` (integer, required): Min 1
+  - `materialId` (string, required if `itemType === "Design"`): ObjectId of an active Material
+  - `customization` (object, optional):
+    - `color` (string, optional)
+    - `infillPercentage` (number, optional)
+    - `layerHeight` (number, optional)
+    - `scale` (number, optional)
+    - `customFields` (object, optional)
+- **Success Response:** `200 OK` (Returns `{ cart }`).
+- **Error Responses:**
+  - `400` — `itemType === "Design"` but `materialId` is missing
+  - `404` — Referenced Product, Design, or Material not found / inactive
+
+---
+
+### 3. Update Cart Item Quantity
+
+Updates the quantity of a specific item in the cart.
+
+- **URL:** `/items/:id`
+- **Method:** `PATCH`
+- **URL Params:** `id` (ObjectId of the cart item subdocument)
+- **Request Body:**
+  - `quantity` (integer, required): Min 1
+- **Success Response:** `200 OK` (Returns `{ cart }`).
+- **Error Responses:**
+  - `404` — Cart or cart item not found
+
+---
+
+### 4. Remove Cart Item
+
+Removes a specific item from the cart.
+
+- **URL:** `/items/:id`
+- **Method:** `DELETE`
+- **URL Params:** `id` (ObjectId of the cart item subdocument)
+- **Success Response:** `200 OK` (Returns `{ cart }`).
+- **Error Responses:**
+  - `404` — Cart or cart item not found
+
+---
+
+### 5. Clear Cart
+
+Removes all items from the cart. Idempotent — clearing an already-empty cart returns 200.
+
+- **URL:** `/`
+- **Method:** `DELETE`
+- **Success Response:** `200 OK`
+
+---
+
+### 6. Checkout
+
+Converts the cart into an `Order`, then deletes the cart. The `unitPrice` for each item is locked at the value stored in the cart at checkout time.
+
+- **URL:** `/checkout`
+- **Method:** `POST`
+- **Request Body:**
+  - `shippingAddressId` (string, required): ObjectId referencing an entry in `user.savedAddresses`
+  - `paymentMethod` (string, required): `"Card"`, `"Wallet"`, or `"COD"`
+- **Success Response:** `201 Created` (Returns `{ order }`).
+- **Error Responses:**
+  - `400` — Cart is empty
+  - `404` — Shipping address not found in user's saved addresses
+
+```json
+{
+  "success": true,
+  "message": "Order placed successfully",
+  "data": {
+    "order": {
+      "orderNumber": "ORD-1234567890-ABC123",
+      "status": "Pending",
+      "items": [...],
+      "shippingAddressSnapshot": {...},
+      "paymentInfo": { "method": "Card", "status": "Pending", "amountPaid": 0 },
+      "pricingSummary": { "subtotal": 100, "total": 100, ... }
+    }
+  }
+}
+```
+  
+
+---
+
+## Manufacturing API
+
+Base URL: `/api/v1/manufacturing`
+
+**Authentication:** All endpoints protected by `authMiddleware`. Uses Bearer token (`Authorization: Bearer <accessToken>`).
+
+### 1. Execute Manufacturing Job
+
+Dispatches a manufacturing job to the appropriate processing queue (slicing or printing).
+
+- **URL:** `/execute`
+- **Method:** `POST`
+- **Request Body:**
+  - `jobId` (string, required): ID of the manufacturing job to process
+  - `action` (string, required): Enum `["start_slicing", "start_printing"]`
+- **Success Response:** `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Job <jobId> dispatched to <action> queue successfully.",
+  "data": null
+}
+```
+
+- **Notes:**
+  - `start_slicing` dispatches to the `slicing-tasks` queue with the model file name derived from `jobId`
+  - `start_printing` dispatches to the `3d-printing-tasks` queue targeting the default printer machine
