@@ -1,11 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
+  "functions": {
+    "api/index.ts": {
+      "memory": 512,
+      "maxDuration": 30
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/(.*)",
