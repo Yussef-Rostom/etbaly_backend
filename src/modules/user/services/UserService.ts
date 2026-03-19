@@ -1,4 +1,5 @@
 import { User, IUser } from "#src/models/User";
+import { Upload } from "#src/models/Upload";
 import { AppError } from "#src/utils/AppError";
 import { uploadAvatarImage, deleteDriveFile } from "#src/utils/drive";
 import { UpdateProfileInput, ChangePasswordInput } from "#src/modules/user/validators/userValidators";
@@ -93,23 +94,35 @@ export class UserService {
       throw new AppError("User not found.", 404);
     }
 
-    if (user.profile.avatarDriveFileId) {
-      try {
-        await deleteDriveFile(user.profile.avatarDriveFileId);
-      } catch (err) {
-        console.error("Failed to delete old avatar from Drive:", err);
-      }
-    }
-
     const { fileId, publicUrl } = await uploadAvatarImage(
       fileBuffer,
       `avatar-${userId}-${Date.now()}.jpg`,
       mimeType,
     );
 
+    // Track the new upload as unused until saved to the user
+    await Upload.findOneAndUpdate(
+      { driveFileId: fileId },
+      { driveFileId: fileId, fileUrl: publicUrl, is_used: false },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    // Delete old avatar from Drive and remove its Upload tracker
+    if (user.profile.avatarDriveFileId) {
+      try {
+        await deleteDriveFile(user.profile.avatarDriveFileId);
+        await Upload.deleteOne({ driveFileId: user.profile.avatarDriveFileId });
+      } catch (err) {
+        console.error("Failed to delete old avatar from Drive:", err);
+      }
+    }
+
     user.profile.avatarUrl = publicUrl;
     user.profile.avatarDriveFileId = fileId;
     await user.save();
+
+    // Mark the new upload as used
+    await Upload.findOneAndUpdate({ driveFileId: fileId }, { is_used: true });
 
     return publicUrl;
   }

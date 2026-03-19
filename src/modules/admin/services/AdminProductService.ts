@@ -1,6 +1,8 @@
 import { Product, IProduct } from "#src/models/Product";
 import { Design } from "#src/models/Design";
+import { Upload } from "#src/models/Upload";
 import { AppError } from "#src/utils/AppError";
+import { uploadImage } from "#src/utils/drive";
 import {
   CreateProductInput,
   UpdateProductInput,
@@ -26,6 +28,21 @@ export class AdminProductService {
     return product;
   }
 
+  static async uploadProductImage(file: Express.Multer.File): Promise<string> {
+    const fileUrl = await uploadImage(file.buffer, file.originalname, file.mimetype);
+
+    const url = new URL(fileUrl);
+    const driveFileId = url.searchParams.get("id")!;
+
+    await Upload.findOneAndUpdate(
+      { driveFileId },
+      { driveFileId, fileUrl, is_used: false },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+
+    return fileUrl;
+  }
+
   static async createProduct(data: CreateProductInput): Promise<IProduct> {
     const design = await Design.findById(data.linkedDesignId);
     if (!design) {
@@ -33,6 +50,14 @@ export class AdminProductService {
     }
 
     const product = await Product.create(data);
+
+    // Mark uploaded images as used
+    if (data.images?.length) {
+      for (const imageUrl of data.images) {
+        await Upload.findOneAndUpdate({ fileUrl: imageUrl }, { is_used: true });
+      }
+    }
+
     return product;
   }
 
@@ -54,6 +79,13 @@ export class AdminProductService {
 
     if (!product) {
       throw new AppError("Product not found.", 404);
+    }
+
+    // Mark any newly added images as used
+    if (data.images?.length) {
+      for (const imageUrl of data.images) {
+        await Upload.findOneAndUpdate({ fileUrl: imageUrl }, { is_used: true });
+      }
     }
 
     return product;

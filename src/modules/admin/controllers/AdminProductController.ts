@@ -2,8 +2,19 @@ import { Request, Response } from "express";
 import { AdminProductService } from "#src/modules/admin/services/AdminProductService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
+import { AppError } from "#src/utils/AppError";
 
 export class AdminProductController {
+  static uploadProductImage = catchAsync(async (req: Request, res: Response) => {
+    if (!req.file) {
+      throw new AppError("Image file is required.", 400);
+    }
+
+    const imageUrl = await AdminProductService.uploadProductImage(req.file);
+
+    sendSuccess(res, 200, "Product image uploaded successfully.", { imageUrl });
+  });
+
   static getAllProducts = catchAsync(async (req: Request, res: Response) => {
     const products = await AdminProductService.getAllProducts();
 

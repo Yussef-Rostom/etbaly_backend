@@ -1,13 +1,13 @@
 import app from "#src/app";
 import { connectDB, disconnectDB } from "#src/configs/databaseConfig";
 import { env } from "#src/configs/envConfig";
-import { startCleanupJob } from "#src/jobs/cron/cleanupUnverifiedUsers";
+import { startAllCronJobs } from "#src/jobs/cron";
 import { setupGracefulShutdown } from "#src/utils/processManager";
 
 const startServer = async (): Promise<void> => {
   await connectDB();
 
-  startCleanupJob();
+  startAllCronJobs();
 
   const server = app.listen(env.PORT, () => {
     console.log(

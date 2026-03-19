@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IProduct extends Document {
   name: string;
   description?: string;
+  images: string[];
   currentBasePrice: number;
   isActive: boolean;
   stockLevel: number;
@@ -23,6 +24,10 @@ const productSchema = new Schema<IProduct>(
     description: {
       type: String,
       trim: true,
+    },
+    images: {
+      type: [String],
+      default: [],
     },
     currentBasePrice: {
       type: Number,
