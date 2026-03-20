@@ -33,6 +33,15 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  private static formatUserResponse(user: IUser): Partial<IUser> {
+    return {
+      _id: user._id,
+      profile: user.profile,
+      email: user.email,
+      role: user.role,
+    };
+  }
+
   /** Registers a new user and sends an OTP for email verification. */
   static async register(
     data: RegisterInput,
@@ -69,16 +78,9 @@ export class AuthService {
       `,
     );
 
-    const userResponse = {
-      _id: user._id,
-      profile: user.profile,
-      email: user.email,
-      role: user.role,
-    };
-
     return {
       message: "Registration successful. An OTP has been sent to your email.",
-      user: userResponse,
+      user: this.formatUserResponse(user),
     };
   }
 
@@ -113,16 +115,9 @@ export class AuthService {
     user.refreshTokens.push(refreshToken);
     await user.save();
 
-    const userResponse = {
-      _id: user._id,
-      profile: user.profile,
-      email: user.email,
-      role: user.role,
-    };
-
     return {
       message: "Login successful.",
-      user: userResponse,
+      user: this.formatUserResponse(user),
       accessToken,
       refreshToken,
     };
@@ -184,16 +179,9 @@ export class AuthService {
     user.refreshTokens.push(refreshToken);
     await user.save();
 
-    const userResponse = {
-      _id: user._id,
-      profile: user.profile,
-      email: user.email,
-      role: user.role,
-    };
-
     return {
       message: "Google authentication successful.",
-      user: userResponse,
+      user: this.formatUserResponse(user),
       accessToken,
       refreshToken,
     };
@@ -218,12 +206,12 @@ export class AuthService {
       throw new AppError("Account is already verified.", 400);
     }
 
-    if (!(await user.compareOtp(data.otp))) {
-      throw new AppError("Invalid or expired OTP.", 400);
-    }
-
     if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
       throw new AppError("OTP has expired. Please request a new one.", 400);
+    }
+
+    if (!(await user.compareOtp(data.otp))) {
+      throw new AppError("Invalid or expired OTP.", 400);
     }
 
     user.isVerified = true;
@@ -239,16 +227,9 @@ export class AuthService {
 
     await user.save();
 
-    const userResponse = {
-      _id: user._id,
-      profile: user.profile,
-      email: user.email,
-      role: user.role,
-    };
-
     return {
       message: "Account verified successfully.",
-      user: userResponse,
+      user: this.formatUserResponse(user),
       accessToken,
       refreshToken,
     };
@@ -303,12 +284,12 @@ export class AuthService {
       throw new AppError("Invalid or expired OTP.", 400);
     }
 
-    if (!(await user.compareOtp(data.otp))) {
-      throw new AppError("Invalid or expired OTP.", 400);
-    }
-
     if (!user.otpExpiresAt || user.otpExpiresAt < new Date()) {
       throw new AppError("OTP has expired. Please request a new one.", 400);
+    }
+
+    if (!(await user.compareOtp(data.otp))) {
+      throw new AppError("Invalid or expired OTP.", 400);
     }
 
     user.password = data.newPassword;

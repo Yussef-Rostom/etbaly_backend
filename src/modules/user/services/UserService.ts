@@ -103,7 +103,7 @@ export class UserService {
     // Track the new upload as unused until saved to the user
     await Upload.findOneAndUpdate(
       { driveFileId: fileId },
-      { driveFileId: fileId, fileUrl: publicUrl, is_used: false },
+      { driveFileId: fileId, fileUrl: publicUrl, isUsed: false },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
@@ -122,7 +122,7 @@ export class UserService {
     await user.save();
 
     // Mark the new upload as used
-    await Upload.findOneAndUpdate({ driveFileId: fileId }, { is_used: true });
+    await Upload.findOneAndUpdate({ driveFileId: fileId }, { isUsed: true });
 
     return publicUrl;
   }

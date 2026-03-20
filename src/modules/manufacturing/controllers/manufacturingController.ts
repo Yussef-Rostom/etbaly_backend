@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { catchAsync } from "#src/utils/catchAsync";
 import { dispatchJob } from "#src/utils/queueManager";
+import { sendSuccess } from "#src/utils/apiResponse";
 
 export class ManufacturingController {
   /**
@@ -24,11 +25,7 @@ export class ManufacturingController {
         });
       }
 
-      res.status(200).json({
-        success: true,
-        message: `Job ${jobId} dispatched to ${action} queue successfully.`,
-        data: null,
-      });
+      sendSuccess(res, 200, `Job ${jobId} dispatched to ${action} queue successfully.`);
     },
   );
 }

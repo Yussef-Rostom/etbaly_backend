@@ -8,17 +8,17 @@ export class APIFeatures {
   }
 
   filter() {
-    const queryObj = { ...this.queryString };
-    const excludedFields = ["page", "sort", "limit", "fields", "search"];
-    excludedFields.forEach((el) => delete queryObj[el]);
+      const queryObj = { ...this.queryString };
+      const excludedFields = ["page", "sort", "limit", "fields", "search"];
+      excludedFields.forEach((el) => delete queryObj[el]);
 
-    let queryStr = JSON.stringify(queryObj);
-    // Replace operators (gte, gt, lte, lt) with MongoDB equivalent ($gte, $gt, etc.)
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
+      let queryStr = JSON.stringify(queryObj);
+      // Replace operators (gte, gt, lte, lt) with MongoDB equivalent ($gte, $gt, etc.)
+      queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
 
-    this.query = this.query.find(JSON.parse(queryStr));
-    return this;
-  }
+      this.query = this.query.find(JSON.parse(queryStr));
+      return this;
+    }
 
   search(searchFields: string[]) {
     if (this.queryString.search) {

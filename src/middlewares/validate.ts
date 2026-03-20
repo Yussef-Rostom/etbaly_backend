@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodSchema } from "zod";
+import { sendError } from "#src/utils/apiResponse";
 
 type ValidationTarget = "body" | "params" | "query";
 
@@ -16,11 +17,7 @@ export const validate = (
         message: issue.message,
       }));
 
-      res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: formattedErrors,
-      });
+      sendError(res, 400, "Validation failed", { errors: formattedErrors });
       return;
     }
 

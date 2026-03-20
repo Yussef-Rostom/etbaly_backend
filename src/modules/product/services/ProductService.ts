@@ -2,26 +2,21 @@ import { Product, IProduct } from "#src/models/Product";
 import { AppError } from "#src/utils/AppError";
 import { APIFeatures } from "#src/utils/apiFeatures";
 
-export class CatalogService {
-  /** Retrieves all active products with pagination, sorting, and search capabilities. */
+export class ProductService {
   static async getActiveProducts(
     queryStr: Record<string, any>,
   ): Promise<{ products: IProduct[]; total: number }> {
     const searchFields = ["name", "description"];
+    const baseFilter = { isActive: true };
 
-    const baseQuery = Product.find({ isActive: true });
-
-    const features = new APIFeatures(baseQuery, queryStr)
+    const features = new APIFeatures(Product.find(baseFilter), queryStr)
       .filter()
       .search(searchFields)
       .sort()
       .limitFields()
       .paginate();
 
-    const countFeatures = new APIFeatures(
-      Product.find({ isActive: true }),
-      queryStr,
-    )
+    const countFeatures = new APIFeatures(Product.find(baseFilter), queryStr)
       .filter()
       .search(searchFields);
 
@@ -33,17 +28,11 @@ export class CatalogService {
     return { products, total };
   }
 
-  /** Retrieves a single active product by ID, throwing an error if not found. */
   static async getActiveProductById(productId: string): Promise<IProduct> {
-    const product = await Product.findOne({
-      _id: productId,
-      isActive: true,
-    });
-
+    const product = await Product.findOne({ _id: productId, isActive: true });
     if (!product) {
       throw new AppError("Product not found or not currently active.", 404);
     }
-
     return product;
   }
 }

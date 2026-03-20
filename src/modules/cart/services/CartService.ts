@@ -48,6 +48,99 @@ export class CartService {
     return design.metadata.volumeCm3 * material.currentPricePerGram;
   }
 
+  /**
+   * Batch resolve unit prices for multiple cart items to avoid N+1 queries.
+   * Fetches all products, designs, and materials in bulk using $in operator.
+   */
+  private static async batchResolveUnitPrices(
+    items: Array<{
+      itemType: "Product" | "Design";
+      itemRefId: Types.ObjectId;
+      materialId?: Types.ObjectId;
+    }>,
+  ): Promise<Map<string, number>> {
+    const priceMap = new Map<string, number>();
+
+    // Separate items by type
+    const productItems = items.filter((item) => item.itemType === "Product");
+    const designItems = items.filter((item) => item.itemType === "Design");
+
+    // Batch fetch products
+    if (productItems.length > 0) {
+      const productIds = productItems.map((item) => item.itemRefId);
+      const products = await Product.find({
+        _id: { $in: productIds },
+        isActive: true,
+      });
+
+      const productPriceMap = new Map(
+        products.map((p) => [p._id.toString(), p.currentBasePrice]),
+      );
+
+      for (const item of productItems) {
+        const price = productPriceMap.get(item.itemRefId.toString());
+        if (price === undefined) {
+          throw new AppError(
+            `Product ${item.itemRefId} not found or not currently active.`,
+            404,
+          );
+        }
+        priceMap.set(item.itemRefId.toString(), price);
+      }
+    }
+
+    // Batch fetch designs and materials
+    if (designItems.length > 0) {
+      const designIds = designItems.map((item) => item.itemRefId);
+      const materialIds = designItems
+        .filter((item) => item.materialId)
+        .map((item) => item.materialId!);
+
+      const [designs, materials] = await Promise.all([
+        Design.find({ _id: { $in: designIds } }),
+        materialIds.length > 0
+          ? Material.find({ _id: { $in: materialIds }, isActive: true })
+          : Promise.resolve([]),
+      ]);
+
+      const designMap = new Map(
+        designs.map((d) => [d._id.toString(), d.metadata.volumeCm3]),
+      );
+      const materialPriceMap = new Map(
+        materials.map((m) => [m._id.toString(), m.currentPricePerGram]),
+      );
+
+      for (const item of designItems) {
+        const volumeCm3 = designMap.get(item.itemRefId.toString());
+        if (volumeCm3 === undefined) {
+          throw new AppError(`Design ${item.itemRefId} not found.`, 404);
+        }
+
+        if (!item.materialId) {
+          throw new AppError(
+            `Material ID is required for design ${item.itemRefId}.`,
+            400,
+          );
+        }
+
+        const pricePerGram = materialPriceMap.get(item.materialId.toString());
+        if (pricePerGram === undefined) {
+          throw new AppError(
+            `Material ${item.materialId} not found or not currently active.`,
+            404,
+          );
+        }
+
+        const price = volumeCm3 * pricePerGram;
+        // Use composite key for designs (designId + materialId)
+        const key = `${item.itemRefId.toString()}_${item.materialId.toString()}`;
+        priceMap.set(key, price);
+      }
+    }
+
+    return priceMap;
+  }
+
   private static recalculatePricing(cart: ICart): void {
     const subtotal = cart.items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
@@ -75,6 +168,12 @@ export class CartService {
         },
       } as unknown as ICart;
     }
+
+    // Verify ownership
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("Forbidden: You do not own this cart.", 403);
+    }
+
     return cart;
   }
 
@@ -105,6 +204,11 @@ export class CartService {
           total: 0,
         },
       });
+    } else {
+      // Verify ownership if cart exists
+      if (cart.userId.toString() !== userId) {
+        throw new AppError("Forbidden: You do not own this cart.", 403);
+      }
     }
 
     const existingItem = cart.items.find((item) => {
@@ -150,6 +254,11 @@ export class CartService {
       throw new AppError("Cart not found.", 404);
     }
 
+    // Verify ownership
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("Forbidden: You do not own this cart.", 403);
+    }
+
     const item = cart.items.find((i) =>
       i._id.equals(new Types.ObjectId(cartItemId)),
     );
@@ -174,6 +283,11 @@ export class CartService {
       throw new AppError("Cart not found.", 404);
     }
 
+    // Verify ownership
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("Forbidden: You do not own this cart.", 403);
+    }
+
     const itemIndex = cart.items.findIndex((i) =>
       i._id.equals(new Types.ObjectId(cartItemId)),
     );
@@ -195,6 +309,11 @@ export class CartService {
       return;
     }
 
+    // Verify ownership
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("Forbidden: You do not own this cart.", 403);
+    }
+
     cart.items = [];
     CartService.recalculatePricing(cart);
     cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
@@ -205,6 +324,11 @@ export class CartService {
     const cart = await Cart.findOne({ userId });
     if (!cart || cart.items.length === 0) {
       throw new AppError("Cannot checkout with an empty cart.", 400);
+    }
+
+    // Verify ownership
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("Forbidden: You do not own this cart.", 403);
     }
 
     const user = await User.findById(userId);
@@ -219,6 +343,40 @@ export class CartService {
       throw new AppError("Shipping address not found.", 404);
     }
 
+    // Batch validate and recalculate prices to ensure they're current
+    // This prevents price manipulation and fixes N+1 query issue
+    const itemsForPriceResolution = cart.items.map((item) => ({
+      itemType: item.itemType,
+      itemRefId: item.itemRefId,
+      materialId: item.materialId,
+    }));
+
+    const priceMap = await CartService.batchResolveUnitPrices(
+      itemsForPriceResolution,
+    );
+
+    // Update cart items with current prices and recalculate totals
+    for (const item of cart.items) {
+      let priceKey: string;
+      if (item.itemType === "Product") {
+        priceKey = item.itemRefId.toString();
+      } else {
+        // Design items use composite key (designId + materialId)
+        priceKey = `${item.itemRefId.toString()}_${item.materialId?.toString()}`;
+      }
+
+      const currentPrice = priceMap.get(priceKey);
+      if (currentPrice === undefined) {
+        throw new AppError(
+          `Unable to resolve price for item ${item.itemRefId}.`,
+          500,
+        );
+      }
+
+      item.unitPrice = currentPrice;
+    }
+
+    // Recalculate pricing summary with validated prices
     CartService.recalculatePricing(cart);
 
     const orderItems = cart.items.map((item) => ({
@@ -235,7 +393,7 @@ export class CartService {
       "ORD-" +
       Date.now() +
       "-" +
-      Math.random().toString(36).substr(2, 6).toUpperCase();
+      Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const order = await Order.create({
       orderNumber,

@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { AdminUserService } from "#src/modules/admin/services/AdminUserService";
+import { AdminUserService } from "#src/modules/user/services/AdminUserService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 
 export class AdminUserController {
-  static getAllUsers = catchAsync(async (_req: Request, res: Response) => {
-    const users = await AdminUserService.getAllUsers();
+  static getAllUsers = catchAsync(async (req: Request, res: Response) => {
+    const users = await AdminUserService.getAllUsers(req.query);
 
     sendSuccess(res, 200, "Users fetched successfully", {
       results: users.length,
@@ -19,9 +19,7 @@ export class AdminUserController {
       req.body,
     );
 
-    sendSuccess(res, 200, "User role updated successfully.", {
-      user: updatedUser,
-    });
+    sendSuccess(res, 200, "User role updated successfully.", { user: updatedUser });
   });
 
   static deleteUser = catchAsync(async (req: Request, res: Response) => {

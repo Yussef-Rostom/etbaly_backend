@@ -4,13 +4,21 @@ import { env } from "#src/configs/envConfig";
 import { AppError } from "#src/utils/AppError";
 import { User } from "#src/models/User";
 import { catchAsync } from "#src/utils/catchAsync";
+import type { Types } from "mongoose";
 
 const { verify } = jsonwebtoken;
+
+export interface AuthenticatedUser {
+  _id: Types.ObjectId;
+  email: string;
+  role: "client" | "admin" | "operator";
+  isVerified: boolean;
+}
 
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: AuthenticatedUser;
     }
   }
 }
@@ -50,3 +58,14 @@ export const authMiddleware = catchAsync(
     next();
   },
 );
+
+/**
+ * Retrieves the authenticated user from the request.
+ * Throws a 401 if called on a route not protected by authMiddleware.
+ */
+export const getAuthUser = (req: Request): AuthenticatedUser => {
+  if (!req.user) {
+    throw new AppError("You are not logged in. Please log in to get access.", 401);
+  }
+  return req.user;
+};

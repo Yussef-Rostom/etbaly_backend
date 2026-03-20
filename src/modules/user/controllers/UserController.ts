@@ -2,10 +2,11 @@ import { Request, Response } from "express";
 import { UserService } from "#src/modules/user/services/UserService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess, sendError } from "#src/utils/apiResponse";
+import { getAuthUser } from "#src/middlewares/authMiddleware";
 
 export class UserController {
   static getMe = catchAsync(async (req: Request, res: Response) => {
-    const user = await UserService.getProfile(req.user._id.toString());
+    const user = await UserService.getProfile(getAuthUser(req)._id.toString());
 
     sendSuccess(res, 200, "Profile fetched successfully", {
       user,
@@ -14,7 +15,7 @@ export class UserController {
 
   static updateMe = catchAsync(async (req: Request, res: Response) => {
     const updatedUser = await UserService.updateProfile(
-      req.user._id.toString(),
+      getAuthUser(req)._id.toString(),
       req.body,
     );
 
@@ -24,7 +25,7 @@ export class UserController {
   });
 
   static changePassword = catchAsync(async (req: Request, res: Response) => {
-    await UserService.changePassword(req.user._id.toString(), req.body);
+    await UserService.changePassword(getAuthUser(req)._id.toString(), req.body);
 
     sendSuccess(
       res,
@@ -39,7 +40,7 @@ export class UserController {
     }
 
     const avatarUrl = await UserService.uploadAvatar(
-      req.user._id.toString(),
+      getAuthUser(req)._id.toString(),
       req.file.buffer,
       req.file.mimetype,
     );

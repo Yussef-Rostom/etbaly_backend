@@ -5,8 +5,7 @@ import morgan from "morgan";
 
 import authRoutes from "#src/modules/auth/authRoutes";
 import userRoutes from "#src/modules/user/userRoutes";
-import adminRoutes from "#src/modules/admin/adminRoutes";
-import catalogRoutes from "#src/modules/catalog/catalogRoutes";
+import productRoutes from "#src/modules/product/productRoutes";
 import manufacturingRoutes from "#src/modules/manufacturing/manufacturingRoutes";
 import cartRoutes from "#src/modules/cart/cartRoutes";
 import designRoutes from "#src/modules/design/designRoutes";
@@ -37,8 +36,7 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
-app.use("/api/v1/admin", adminRoutes);
-app.use("/api/v1/catalog", catalogRoutes);
+app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/manufacturing", manufacturingRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/designs", designRoutes);

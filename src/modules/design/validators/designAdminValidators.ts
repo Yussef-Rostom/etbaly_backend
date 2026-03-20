@@ -16,21 +16,14 @@ const metadataSchema = z.object({
 });
 
 export const createDesignSchema = z.object({
-  name: z
-    .string()
-    .min(1, "name is required")
-    .refine((val) => val.trim().length > 0, "name cannot be empty or whitespace"),
+  name: z.string().min(1, "name is required").trim(),
   fileUrl: z.string().url("fileUrl must be a valid URL"),
   metadata: metadataSchema,
   isPrintable: z.boolean().optional(),
 });
 
 export const updateDesignSchema = z.object({
-  name: z
-    .string()
-    .min(1, "name cannot be empty")
-    .refine((val) => val.trim().length > 0, "name cannot be empty or whitespace")
-    .optional(),
+  name: z.string().min(1, "name cannot be empty").trim().optional(),
   fileUrl: z.string().url("fileUrl must be a valid URL").optional(),
   metadata: metadataSchema.partial().optional(),
   isPrintable: z.boolean().optional(),

@@ -8,7 +8,7 @@ export const startUploadGCJob = () => {
       console.log("🗑️  Running cron job: Upload Garbage Collection");
 
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const orphans = await Upload.find({ is_used: false, createdAt: { $lt: cutoff } });
+      const orphans = await Upload.find({ isUsed: false, createdAt: { $lt: cutoff } });
 
       let deletedCount = 0;
 

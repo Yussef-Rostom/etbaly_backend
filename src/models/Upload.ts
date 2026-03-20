@@ -3,7 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface IUpload extends Document {
   driveFileId: string;
   fileUrl: string;
-  is_used: boolean;
+  isUsed: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,7 +19,7 @@ const uploadSchema = new Schema<IUpload>(
       type: String,
       required: [true, "File URL is required"],
     },
-    is_used: {
+    isUsed: {
       type: Boolean,
       default: false,
     },
@@ -29,7 +29,7 @@ const uploadSchema = new Schema<IUpload>(
   },
 );
 
-uploadSchema.index({ is_used: 1, createdAt: 1 });
+uploadSchema.index({ isUsed: 1, createdAt: 1 });
 uploadSchema.index({ fileUrl: 1 });
 
 export const Upload = mongoose.model<IUpload>("Upload", uploadSchema);
