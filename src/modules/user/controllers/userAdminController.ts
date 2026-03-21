@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AdminUserService } from "#src/modules/user/services/AdminUserService";
+import { AdminUserService } from "#src/modules/user/services/userAdminService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 

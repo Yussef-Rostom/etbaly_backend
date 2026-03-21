@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { ManufacturingController } from "#src/modules/manufacturing/controllers/manufacturingController";
+import { ManufacturingController } from "#src/modules/manufacturing/controllers/manufacturingAdminController";
 import { validate } from "#src/middlewares/validate";
-import { executeJobSchema } from "#src/modules/manufacturing/validators/manufacturingValidators";
+import { executeJobSchema } from "#src/modules/manufacturing/validators/manufacturingAdminValidators";
 import { authMiddleware } from "#src/middlewares/authMiddleware";
 import { restrictTo } from "#src/middlewares/roleMiddleware";
 

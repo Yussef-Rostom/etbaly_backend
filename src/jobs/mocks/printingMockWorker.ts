@@ -1,4 +1,4 @@
-import { ManufacturingService } from "#src/modules/manufacturing/services/ManufacturingService";
+import { ManufacturingService } from "#src/modules/manufacturing/services/manufacturingAdminService";
 
 export const processPrintingJob = async (data: any) => {
   const { manufacturingJobId, machineId } = data;

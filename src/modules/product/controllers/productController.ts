@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { ProductService } from "#src/modules/product/services/ProductService";
+import { ProductService } from "#src/modules/product/services/productService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CartService } from "#src/modules/cart/services/CartService";
+import { CartService } from "#src/modules/cart/services/cartService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 import { getAuthUser } from "#src/middlewares/authMiddleware";

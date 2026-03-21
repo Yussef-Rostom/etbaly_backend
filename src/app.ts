@@ -3,12 +3,15 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import authRoutes from "#src/modules/auth/authRoutes";
-import userRoutes from "#src/modules/user/userRoutes";
-import productRoutes from "#src/modules/product/productRoutes";
-import manufacturingRoutes from "#src/modules/manufacturing/manufacturingRoutes";
-import cartRoutes from "#src/modules/cart/cartRoutes";
-import designRoutes from "#src/modules/design/designRoutes";
+import authRoutes from "#src/modules/auth/routes/authRoutes";
+import userRoutes from "#src/modules/user/routes/userRoutes";
+import userAdminRoutes from "#src/modules/user/routes/userAdminRoutes";
+import productRoutes from "#src/modules/product/routes/productRoutes";
+import productAdminRoutes from "#src/modules/product/routes/productAdminRoutes";
+import manufacturingRoutes from "#src/modules/manufacturing/routes/manufacturingAdminRoutes";
+import cartRoutes from "#src/modules/cart/routes/cartRoutes";
+import designRoutes from "#src/modules/design/routes/designRoutes";
+import designAdminRoutes from "#src/modules/design/routes/designAdminRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -34,12 +37,18 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
   });
 });
 
+// ─── Public Routes ────────────────────────────────────────────────────────────
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/products", productRoutes);
-app.use("/api/v1/manufacturing", manufacturingRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/designs", designRoutes);
+
+// ─── Admin Routes ─────────────────────────────────────────────────────────────
+app.use("/api/v1/admin/users", userAdminRoutes);
+app.use("/api/v1/admin/products", productAdminRoutes);
+app.use("/api/v1/admin/manufacturing", manufacturingRoutes);
+app.use("/api/v1/admin/designs", designAdminRoutes);
 
 app.use((req: Request, _res: Response) => {
   throw new AppError(

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { DesignService } from "#src/modules/design/services/DesignService";
+import { DesignService } from "#src/modules/design/services/designService";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 import { getAuthUser } from "#src/middlewares/authMiddleware";

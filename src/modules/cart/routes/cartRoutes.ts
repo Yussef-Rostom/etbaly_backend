@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { CartController } from "#src/modules/cart/controllers/CartController";
+import { CartController } from "#src/modules/cart/controllers/cartController";
 import { authMiddleware } from "#src/middlewares/authMiddleware";
 import { validate } from "#src/middlewares/validate";
 import {

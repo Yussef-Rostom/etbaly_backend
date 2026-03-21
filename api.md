@@ -1,5 +1,9 @@
 # Etbaly REST API Documentation
 
+> Base URL: `https://etbaly-backend.vercel.app/api/v1`
+> All protected routes require `Authorization: Bearer <token>` header.
+> All responses follow a standard JSON format (see [Standard Response Format](#standard-response-format)).
+
 ## Table of Contents
 
 1. [Standard Response Format](#standard-response-format)
@@ -178,7 +182,7 @@ Base URL: `/api/v1/users` — Auth required.
 
 ### Admin — User Management
 
-Base URL: `/api/v1/users/admin` — Role: `admin`.
+Base URL: `/api/v1/admin/users` — Role: `admin`.
 
 ### GET `/`
 - **Query Params:** `page`, `limit`, `sort`, `search` (searches `email`, `profile.firstName`, `profile.lastName`), field filters
@@ -219,7 +223,7 @@ Base URL: `/api/v1/products`
 
 ### Admin — Product Management
 
-Base URL: `/api/v1/products/admin` — Role: `admin`.
+Base URL: `/api/v1/admin/products` — Role: `admin`.
 
 ### GET `/`
 - **Query Params:** `page`, `limit`, `sort`, `search` (searches `name`, `description`), field filters
@@ -336,7 +340,7 @@ Cart shape:
 
 ## Manufacturing Module
 
-Base URL: `/api/v1/manufacturing` — Role: `admin` or `operator`.
+Base URL: `/api/v1/admin/manufacturing` — Role: `admin` or `operator`.
 
 ### POST `/execute`
 - **Body:**
@@ -382,7 +386,7 @@ Design shape:
 
 ### Admin — Design Management
 
-Base URL: `/api/v1/designs/admin` — Role: `admin`.
+Base URL: `/api/v1/admin/designs` — Role: `admin`.
 
 **Security:** Admin operations verify role at both middleware and service layers.
 

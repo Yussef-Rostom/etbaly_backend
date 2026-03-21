@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { AuthController } from "#src/modules/auth/controllers/AuthController";
+import { AuthController } from "#src/modules/auth/controllers/authController";
 import { validate } from "#src/middlewares/validate";
 import {
   registerSchema,
