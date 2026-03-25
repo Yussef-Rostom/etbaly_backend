@@ -82,7 +82,7 @@ Updates the authenticated user's profile fields. All fields are optional; only p
   - *Description:* Egyptian mobile number
 
 - **`avatarUrl`** (*string*, Optional)
-  - *Validation:* Must be a valid URL
+  - *Validation:* Must be a valid URL previously uploaded via `PATCH /api/v1/users/me/avatar`
   - *Description:* Direct URL to the user's avatar image
 
 - **`bio`** (*string*, Optional)
@@ -132,6 +132,14 @@ Updates the authenticated user's profile fields. All fields are optional; only p
 }
 ```
 
+**Response 400 — Untracked Avatar**
+```json
+{
+  "success": false,
+  "message": "avatarUrl was not uploaded to our storage. Please upload the avatar first."
+}
+```
+
 ---
 
 ### `PATCH /api/v1/users/me/password`
@@ -173,7 +181,7 @@ Changes the authenticated user's password. Invalidates all active refresh tokens
 - **Access:** Authenticated (any role)
 - **Content-Type:** `multipart/form-data`
 
-Uploads a new avatar image for the authenticated user. The image is stored on Google Drive and the URL is saved to the user's profile. Automatically deletes the previous avatar from Drive if one exists.
+Uploads a new avatar image for the authenticated user. The image is stored on Google Drive and the URL is saved to the user's profile. The previous avatar is marked for garbage collection if one exists.
 
 **Form Fields**
 

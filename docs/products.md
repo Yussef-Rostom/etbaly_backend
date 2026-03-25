@@ -169,7 +169,7 @@ Creates a new product.
   - *Description:* Product description text
 
 - **`images`** (*array of strings*, Optional)
-  - *Validation:* Each element must be a valid URL
+  - *Validation:* Each element must be a valid URL previously uploaded via `POST /api/v1/admin/products/upload-image`
   - *Description:* Array of image URLs for the product
 
 - **`isActive`** (*boolean*, Optional)
@@ -211,6 +211,14 @@ Creates a new product.
 {
   "success": false,
   "message": "Linked Design is not printable."
+}
+```
+
+**Response 400 — Untracked Image**
+```json
+{
+  "success": false,
+  "message": "Image URL was not uploaded to our storage: <url>"
 }
 ```
 
@@ -303,7 +311,7 @@ Partially updates a product. All fields are optional.
   - *Validation:* Trimmed
 
 - **`images`** (*array of strings*, Optional)
-  - *Validation:* Each must be a valid URL
+  - *Validation:* Each must be a valid URL previously uploaded via `POST /api/v1/admin/products/upload-image`
 
 - **`isActive`** (*boolean*, Optional)
 

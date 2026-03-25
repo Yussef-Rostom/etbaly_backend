@@ -148,19 +148,19 @@ Creates a new design record. Obtain the `fileUrl` from the upload endpoint first
   - *Description:* Display name for the design
 
 - **`fileUrl`** (*string*, Required)
-  - *Validation:* Must be a valid URL
+  - *Validation:* Must be a valid URL previously uploaded via `POST /api/v1/admin/designs/upload-file`
   - *Description:* URL of the uploaded 3D model file
 
 - **`metadata`** (*object*, Required)
   - *Description:* Technical metadata about the 3D model
-  - **`volumeCm3`** (*number*, Required)
+  - **`volumeCm3`** (*number*, Optional)
     - *Validation:* Must be positive
     - *Description:* Volume of the model in cm³
-  - **`dimensions`** (*object*, Required)
-    - **`x`** (*number*, Required) — Must be positive; width in mm
-    - **`y`** (*number*, Required) — Must be positive; depth in mm
-    - **`z`** (*number*, Required) — Must be positive; height in mm
-  - **`estimatedPrintTime`** (*number*, Required)
+  - **`dimensions`** (*object*, Optional)
+    - **`x`** (*number*, Optional) — Must be positive; width in mm
+    - **`y`** (*number*, Optional) — Must be positive; depth in mm
+    - **`z`** (*number*, Optional) — Must be positive; height in mm
+  - **`estimatedPrintTime`** (*number*, Optional)
     - *Validation:* Must be positive
     - *Description:* Estimated print time in minutes
   - **`supportedMaterials`** (*array of strings*, Required)
@@ -204,6 +204,11 @@ Creates a new design record. Obtain the `fileUrl` from the upload endpoint first
     ]
   }
 }
+```
+
+**Response 400 — Untracked File**
+```json
+{ "success": false, "message": "fileUrl was not uploaded to our storage. Please upload the file first." }
 ```
 
 ---

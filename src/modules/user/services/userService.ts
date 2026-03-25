@@ -1,7 +1,7 @@
 import { User, IUser } from "#src/models/User";
 import { Upload } from "#src/models/Upload";
 import { AppError } from "#src/utils/AppError";
-import { uploadAvatarImage, deleteDriveFile } from "#src/utils/drive";
+import { uploadAvatarImage } from "#src/utils/drive";
 import { UpdateProfileInput, ChangePasswordInput } from "#src/modules/user/validators/userValidators";
 
 const safeProfileOf = (profile: IUser["profile"]) => {
@@ -44,7 +44,23 @@ export class UserService {
     if (data.lastName !== undefined) user.profile.lastName = data.lastName;
     if (data.phoneNumber !== undefined)
       user.profile.phoneNumber = data.phoneNumber;
-    if (data.avatarUrl !== undefined) user.profile.avatarUrl = data.avatarUrl;
+    if (data.avatarUrl !== undefined) {
+      const tracker = await Upload.findOne({ fileUrl: data.avatarUrl });
+      if (!tracker) {
+        throw new AppError("avatarUrl was not uploaded to our storage. Please upload the avatar first.", 400);
+      }
+      // Mark old avatar as unused for GC
+      if (user.profile.avatarDriveFileId) {
+        await Upload.findOneAndUpdate(
+          { driveFileId: user.profile.avatarDriveFileId },
+          { isUsed: false },
+        );
+      }
+      user.profile.avatarUrl = data.avatarUrl;
+      user.profile.avatarDriveFileId = tracker.driveFileId;
+      tracker.isUsed = true;
+      await tracker.save();
+    }
     if (data.bio !== undefined) user.profile.bio = data.bio;
     if (data.savedAddresses !== undefined)
       user.savedAddresses = data.savedAddresses;
@@ -111,12 +127,10 @@ export class UserService {
 
     // Delete old avatar from Drive and remove its Upload tracker
     if (user.profile.avatarDriveFileId) {
-      try {
-        await deleteDriveFile(user.profile.avatarDriveFileId);
-        await Upload.deleteOne({ driveFileId: user.profile.avatarDriveFileId });
-      } catch (err) {
-        console.error("Failed to delete old avatar from Drive:", err);
-      }
+      await Upload.findOneAndUpdate(
+        { driveFileId: user.profile.avatarDriveFileId },
+        { isUsed: false },
+      );
     }
 
     user.profile.avatarUrl = publicUrl;

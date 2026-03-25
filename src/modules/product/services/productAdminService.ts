@@ -52,12 +52,19 @@ export class ProductAdminService {
     if (!design) throw new AppError("Linked Design not found.", 404);
     if (!design.isPrintable) throw new AppError("Linked Design is not printable.", 400);
 
+    if (data.images?.length) {
+      for (const imageUrl of data.images) {
+        const tracker = await Upload.findOne({ fileUrl: imageUrl });
+        if (!tracker) {
+          throw new AppError(`Image URL was not uploaded to our storage: ${imageUrl}`, 400);
+        }
+      }
+    }
+
     const product = await Product.create(data);
 
     if (data.images?.length) {
-      for (const imageUrl of data.images) {
-        await Upload.findOneAndUpdate({ fileUrl: imageUrl }, { isUsed: true });
-      }
+      await Upload.updateMany({ fileUrl: { $in: data.images } }, { isUsed: true });
     }
 
     return product;
@@ -72,6 +79,15 @@ export class ProductAdminService {
       if (!design) throw new AppError("Linked Design not found.", 404);
     }
 
+    if (data.images?.length) {
+      for (const imageUrl of data.images) {
+        const tracker = await Upload.findOne({ fileUrl: imageUrl });
+        if (!tracker) {
+          throw new AppError(`Image URL was not uploaded to our storage: ${imageUrl}`, 400);
+        }
+      }
+    }
+
     const product = await Product.findByIdAndUpdate(productId, data, {
       new: true,
       runValidators: true,
@@ -80,9 +96,7 @@ export class ProductAdminService {
     if (!product) throw new AppError("Product not found.", 404);
 
     if (data.images?.length) {
-      for (const imageUrl of data.images) {
-        await Upload.findOneAndUpdate({ fileUrl: imageUrl }, { isUsed: true });
-      }
+      await Upload.updateMany({ fileUrl: { $in: data.images } }, { isUsed: true });
     }
 
     return product;

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Design, IDesign } from "#src/models/Design";
 import { Upload } from "#src/models/Upload";
-import { uploadImage, deleteDriveFile } from "#src/utils/drive";
+import { uploadImage } from "#src/utils/drive";
 import { AppError } from "#src/utils/AppError";
 import {
   CreateDesignInput,
@@ -38,6 +38,11 @@ export class DesignAdminService {
   }
 
   static async createDesign(userId: string, dto: CreateDesignInput): Promise<IDesign> {
+    const tracker = await Upload.findOne({ fileUrl: dto.fileUrl });
+    if (!tracker) {
+      throw new AppError("fileUrl was not uploaded to our storage. Please upload the file first.", 400);
+    }
+
     const design = await Design.create({
       name: dto.name,
       isPrintable: dto.isPrintable ?? false,
@@ -46,13 +51,8 @@ export class DesignAdminService {
       fileUrl: dto.fileUrl,
     });
 
-    const tracker = await Upload.findOneAndUpdate(
-      { fileUrl: dto.fileUrl },
-      { isUsed: true },
-    );
-    if (!tracker) {
-      console.warn(`[UploadGC] No Upload tracker found for fileUrl: ${dto.fileUrl}`);
-    }
+    tracker.isUsed = true;
+    await tracker.save();
 
     return design;
   }
@@ -79,6 +79,13 @@ export class DesignAdminService {
 
     const oldFileUrl = design.fileUrl;
 
+    if (dto.fileUrl && dto.fileUrl !== oldFileUrl) {
+      const tracker = await Upload.findOne({ fileUrl: dto.fileUrl });
+      if (!tracker) {
+        throw new AppError("fileUrl was not uploaded to our storage. Please upload the file first.", 400);
+      }
+    }
+
     if (dto.name !== undefined) design.name = dto.name;
     if (dto.isPrintable !== undefined) design.isPrintable = dto.isPrintable;
     if (dto.fileUrl !== undefined) design.fileUrl = dto.fileUrl;
@@ -98,13 +105,15 @@ export class DesignAdminService {
     await design.save();
 
     if (dto.fileUrl && dto.fileUrl !== oldFileUrl) {
+      await Upload.findOneAndUpdate({ fileUrl: dto.fileUrl }, { isUsed: true });
+
       const oldFileId = extractDriveFileId(oldFileUrl);
       if (oldFileId) {
-        try {
-          await deleteDriveFile(oldFileId);
-        } catch (err) {
-          console.error(`Failed to delete old Drive file ${oldFileId}:`, err);
-        }
+        await Upload.findOneAndUpdate(
+          { driveFileId: oldFileId },
+          { driveFileId: oldFileId, fileUrl: oldFileUrl, isUsed: false },
+          { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
       }
     }
 
@@ -135,11 +144,11 @@ export class DesignAdminService {
 
     const fileId = extractDriveFileId(fileUrl);
     if (fileId) {
-      try {
-        await deleteDriveFile(fileId);
-      } catch (err) {
-        console.error(`Failed to delete Drive file ${fileId}:`, err);
-      }
+      await Upload.findOneAndUpdate(
+        { driveFileId: fileId },
+        { driveFileId: fileId, fileUrl, isUsed: false },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
     }
   }
 }

@@ -1,13 +1,13 @@
 import { Schema } from "mongoose";
 
 export interface IDesignMetadata {
-  volumeCm3: number;
-  dimensions: {
-    x: number;
-    y: number;
-    z: number;
+  volumeCm3?: number;
+  dimensions?: {
+    x?: number;
+    y?: number;
+    z?: number;
   };
-  estimatedPrintTime: number;
+  estimatedPrintTime?: number;
   supportedMaterials: ("PLA" | "ABS" | "Resin" | "TPU" | "PETG")[];
 }
 
@@ -15,16 +15,14 @@ export const designMetadataSchema = new Schema<IDesignMetadata>(
   {
     volumeCm3: {
       type: Number,
-      required: [true, "Volume in cm³ is required"],
     },
     dimensions: {
-      x: { type: Number, required: [true, "Dimension X is required"] },
-      y: { type: Number, required: [true, "Dimension Y is required"] },
-      z: { type: Number, required: [true, "Dimension Z is required"] },
+      x: { type: Number },
+      y: { type: Number },
+      z: { type: Number },
     },
     estimatedPrintTime: {
       type: Number,
-      required: [true, "Estimated print time is required"],
     },
     supportedMaterials: {
       type: [String],
