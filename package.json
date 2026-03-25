@@ -15,7 +15,9 @@
     "dev:api": "tsx watch --include src src/server.ts",
     "build": "tsc",
     "start": "node dist/src/server.js",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "seed": "tsx src/seed/seed.ts --",
+    "clear": "tsx src/seed/clear.ts --"
   },
   "jest": {
     "preset": "ts-jest",

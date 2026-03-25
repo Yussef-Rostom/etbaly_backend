@@ -43,6 +43,11 @@ export class AuthController {
     });
   });
 
+  static resendOtp = catchAsync(async (req: Request, res: Response) => {
+    const { message } = await AuthService.resendOtp(req.body);
+    sendSuccess(res, 200, message, null);
+  });
+
   static forgotPassword = catchAsync(async (req: Request, res: Response) => {
     const { message } = await AuthService.forgotPassword(req.body);
 

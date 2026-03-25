@@ -25,8 +25,8 @@ export const registerSchema = z.object({
     .min(6, "Password must be at least 6 characters")
     .max(128, "Password must be at most 128 characters")
     .regex(
-      /^(?=.*[a-zA-Z])(?=.*\d)/,
-      "Password must contain at least one letter and one number",
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      "Password must contain at least one letter, one number, and one special character",
     ),
 });
 
@@ -83,8 +83,8 @@ export const resetPasswordSchema = z.object({
     .min(6, "Password must be at least 6 characters")
     .max(128, "Password must be at most 128 characters")
     .regex(
-      /^(?=.*[a-zA-Z])(?=.*\d)/,
-      "Password must contain at least one letter and one number",
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      "Password must contain at least one letter, one number, and one special character",
     ),
 });
 

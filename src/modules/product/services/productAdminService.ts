@@ -89,7 +89,14 @@ export class ProductAdminService {
   }
 
   static async deleteProduct(productId: string): Promise<void> {
-    const product = await Product.findByIdAndDelete(productId);
+    const product = await Product.findById(productId);
     if (!product) throw new AppError("Product not found.", 404);
+
+    // Mark all product images as unused for garbage collection
+    if (product.images.length) {
+      await Upload.updateMany({ fileUrl: { $in: product.images } }, { isUsed: false });
+    }
+
+    await product.deleteOne();
   }
 }

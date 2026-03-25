@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const addCartItemSchema = z.object({
   itemType: z.enum(["Product", "Design"]),
-  itemRefId: z.string(),
+  itemRefId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
   materialId: z.string().optional(),
   customization: z
@@ -21,7 +21,7 @@ export const updateCartItemSchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  shippingAddressId: z.string(),
+  shippingAddressId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
   paymentMethod: z.enum(["Card", "Wallet", "COD"]),
 });
 

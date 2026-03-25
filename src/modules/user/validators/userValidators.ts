@@ -21,6 +21,10 @@ export const updateProfileSchema = z.object({
     .string({ error: "Avatar URL must be a string" })
     .url("Must be a valid URL")
     .optional(),
+  bio: z
+    .string({ error: "Bio must be a string" })
+    .max(500, "Bio must be at most 500 characters")
+    .optional(),
   savedAddresses: z
     .array(
       z.object({
@@ -46,14 +50,14 @@ export const updateProfileSchema = z.object({
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string({ error: "Current password is required" }),
+  currentPassword: z.string({ error: "Current password is required" }).min(1, "Current password is required"),
   newPassword: z
     .string({ error: "New password is required" })
     .min(6, "Password must be at least 6 characters")
     .max(128, "Password must be at most 128 characters")
     .regex(
-      /^(?=.*[a-zA-Z])(?=.*\d)/,
-      "Password must contain at least one letter and one number",
+      /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      "Password must contain at least one letter, one number, and one special character",
     ),
 });
 

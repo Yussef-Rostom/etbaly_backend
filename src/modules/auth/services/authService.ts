@@ -235,6 +235,34 @@ export class AuthService {
     };
   }
 
+  /** Resends a verification OTP to an unverified user's email. */
+  static async resendOtp(data: ForgotPasswordInput): Promise<{ message: string }> {
+    const user = await User.findOne({ email: data.email }).select("+otp +otpExpiresAt");
+
+    // Always return the same message to prevent email enumeration
+    if (!user || user.isVerified) {
+      return { message: "If an unverified account with that email exists, a new OTP has been sent." };
+    }
+
+    const otp = crypto.randomInt(100000, 999999).toString();
+    user.otp = otp;
+    user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    await sendEmail(
+      user.email,
+      "Etbaly - Resend Verification Code",
+      `Your new verification code is: ${otp}\nThis code will expire in 10 minutes.`,
+      `
+        <h2>Verify Your Account</h2>
+        <p>Your new verification code is: <strong>${otp}</strong></p>
+        <p>This code will expire in 10 minutes.</p>
+      `,
+    );
+
+    return { message: "If an unverified account with that email exists, a new OTP has been sent." };
+  }
+
   /** Returns success even if user doesn't exist to prevent email enumeration. */
   static async forgotPassword(
     data: ForgotPasswordInput,

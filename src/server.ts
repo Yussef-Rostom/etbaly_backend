@@ -1,7 +1,7 @@
 import app from "#src/app";
 import { connectDB, disconnectDB } from "#src/configs/databaseConfig";
 import { env } from "#src/configs/envConfig";
-import { startAllCronJobs } from "#src/jobs/cron";
+import { startAllCronJobs } from "#src/jobs/crons";
 import { setupGracefulShutdown } from "#src/utils/processManager";
 
 const startServer = async (): Promise<void> => {

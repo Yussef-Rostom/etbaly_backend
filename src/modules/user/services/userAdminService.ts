@@ -1,4 +1,5 @@
 import { User, IUser } from "#src/models/User";
+import { Upload } from "#src/models/Upload";
 import { AppError } from "#src/utils/AppError";
 import { UpdateRoleInput } from "#src/modules/user/validators/userAdminValidators";
 import { APIFeatures } from "#src/utils/apiFeatures";
@@ -41,9 +42,20 @@ export class AdminUserService {
   }
 
   static async deleteUser(userId: string): Promise<void> {
-    const user = await User.findByIdAndDelete(userId);
+    const user = await User.findById(userId);
     if (!user) {
       throw new AppError("User not found.", 404);
     }
+
+    // Mark avatar as unused so the garbage collector can clean it up
+    if (user.profile.avatarDriveFileId && user.profile.avatarUrl) {
+      await Upload.findOneAndUpdate(
+        { driveFileId: user.profile.avatarDriveFileId },
+        { driveFileId: user.profile.avatarDriveFileId, fileUrl: user.profile.avatarUrl, isUsed: false },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    }
+
+    await user.deleteOne();
   }
 }

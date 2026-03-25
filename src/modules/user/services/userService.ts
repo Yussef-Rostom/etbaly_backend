@@ -5,7 +5,8 @@ import { uploadAvatarImage, deleteDriveFile } from "#src/utils/drive";
 import { UpdateProfileInput, ChangePasswordInput } from "#src/modules/user/validators/userValidators";
 
 const safeProfileOf = (profile: IUser["profile"]) => {
-  const { avatarDriveFileId: _, ...safe } = { ...profile };
+  const raw = (profile as any).toObject ? (profile as any).toObject() : { ...profile };
+  const { avatarDriveFileId: _, ...safe } = raw;
   return safe;
 };
 
@@ -44,6 +45,7 @@ export class UserService {
     if (data.phoneNumber !== undefined)
       user.profile.phoneNumber = data.phoneNumber;
     if (data.avatarUrl !== undefined) user.profile.avatarUrl = data.avatarUrl;
+    if (data.bio !== undefined) user.profile.bio = data.bio;
     if (data.savedAddresses !== undefined)
       user.savedAddresses = data.savedAddresses;
 
