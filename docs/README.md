@@ -15,6 +15,7 @@
 - [Products](./products.md) — Public product browsing and admin product CRUD
 - [Designs](./designs.md) — Authenticated design access and admin design CRUD
 - [Cart](./cart.md) — Cart management and checkout
+- [Orders](./orders.md) — Order history, order tracking, and admin order management
 - [Manufacturing](./manufacturing.md) — Job dispatch for slicing and printing
 
 ---

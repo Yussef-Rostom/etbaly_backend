@@ -1,9 +1,9 @@
 import { Router } from "express";
 import multer from "multer";
 import { ProductAdminController } from "../controllers/productAdminController";
-import { authMiddleware } from "../../../middlewares/authMiddleware";
-import { restrictTo } from "../../../middlewares/roleMiddleware";
-import { validate } from "../../../middlewares/validate";
+import { authMiddleware } from "#src/middlewares/authMiddleware";
+import { restrictTo } from "#src/middlewares/roleMiddleware";
+import { validate } from "#src/middlewares/validate";
 import {
   createProductSchema,
   updateProductSchema,

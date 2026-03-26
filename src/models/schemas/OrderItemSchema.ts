@@ -5,6 +5,7 @@ import {
 } from "#src/models/schemas/CustomizationParamsSchema";
 
 export interface IOrderItem {
+  _id?: Schema.Types.ObjectId;
   itemType: "Product" | "Design";
   quantity: number;
   customization?: ICustomizationParams;

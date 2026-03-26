@@ -10,6 +10,8 @@ import productRoutes from "#src/modules/product/routes/productRoutes";
 import productAdminRoutes from "#src/modules/product/routes/productAdminRoutes";
 import manufacturingRoutes from "#src/modules/manufacturing/routes/manufacturingAdminRoutes";
 import cartRoutes from "#src/modules/cart/routes/cartRoutes";
+import orderRoutes from "#src/modules/order/routes/orderRoutes";
+import orderAdminRoutes from "#src/modules/order/routes/orderAdminRoutes";
 import designRoutes from "#src/modules/design/routes/designRoutes";
 import designAdminRoutes from "#src/modules/design/routes/designAdminRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
@@ -42,6 +44,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/cart", cartRoutes);
+app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/designs", designRoutes);
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
@@ -49,6 +52,7 @@ app.use("/api/v1/admin/users", userAdminRoutes);
 app.use("/api/v1/admin/products", productAdminRoutes);
 app.use("/api/v1/admin/manufacturing", manufacturingRoutes);
 app.use("/api/v1/admin/designs", designAdminRoutes);
+app.use("/api/v1/admin/orders", orderAdminRoutes);
 
 app.use((req: Request, _res: Response) => {
   throw new AppError(
