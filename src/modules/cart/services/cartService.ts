@@ -45,6 +45,9 @@ export class CartService {
       throw new AppError("Material not found or not currently active.", 404);
     }
 
+    if (design.metadata.volumeCm3 === undefined) {
+      throw new AppError("Design volume information is missing.", 400);
+    }
     return design.metadata.volumeCm3 * material.currentPricePerGram;
   }
 

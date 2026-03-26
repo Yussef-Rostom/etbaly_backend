@@ -96,6 +96,9 @@ export class DesignAdminService {
       if (m.estimatedPrintTime !== undefined) design.metadata.estimatedPrintTime = m.estimatedPrintTime;
       if (m.supportedMaterials !== undefined) design.metadata.supportedMaterials = m.supportedMaterials;
       if (m.dimensions) {
+        if (!design.metadata.dimensions) {
+          design.metadata.dimensions = {};
+        }
         if (m.dimensions.x !== undefined) design.metadata.dimensions.x = m.dimensions.x;
         if (m.dimensions.y !== undefined) design.metadata.dimensions.y = m.dimensions.y;
         if (m.dimensions.z !== undefined) design.metadata.dimensions.z = m.dimensions.z;

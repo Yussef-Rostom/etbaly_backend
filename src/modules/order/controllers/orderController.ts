@@ -12,7 +12,7 @@ export class OrderController {
   });
 
   static getOrderById = catchAsync(async (req: Request, res: Response) => {
-    const order = await OrderService.getOrderById(req.params.id, getAuthUser(req));
+    const order = await OrderService.getOrderById(req.params.id as string, getAuthUser(req));
 
     sendSuccess(res, 200, "Order fetched successfully", { order });
   });

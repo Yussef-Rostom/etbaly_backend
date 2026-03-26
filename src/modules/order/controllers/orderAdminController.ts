@@ -16,7 +16,7 @@ export class OrderAdminController {
 
   static assignOrderItem = catchAsync(async (req: Request, res: Response) => {
     const job = await OrderAdminService.assignOrderItem(
-      req.params.id,
+      req.params.id as string,
       req.body as AssignOrderItemInput,
       getAuthUser(req)._id.toString(),
     );
