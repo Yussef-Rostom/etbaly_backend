@@ -17,6 +17,7 @@
 - [Cart](./cart.md) — Cart management and checkout
 - [Orders](./orders.md) — Order history, order tracking, and admin order management
 - [Manufacturing](./manufacturing.md) — Job dispatch for slicing and printing
+- [AI Generation](./ai.md) — Lightning AI service URL management for AI-powered content generation
 
 ---
 

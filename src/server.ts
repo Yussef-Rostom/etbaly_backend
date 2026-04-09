@@ -9,11 +9,11 @@ const startServer = async (): Promise<void> => {
 
   startAllCronJobs();
 
-  const server = app.listen(env.PORT, () => {
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(
       `🚀 Server running in ${env.NODE_ENV} mode on port ${env.PORT}`,
     );
-    console.log(`📍 Health check: http://localhost:${env.PORT}/api/v1/health`);
+    console.log(`📍 Health check: http://0.0.0.0:${env.PORT}/api/v1/health`);
   });
 
   setupGracefulShutdown("API Server", [

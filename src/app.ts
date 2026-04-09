@@ -14,6 +14,7 @@ import orderRoutes from "#src/modules/order/routes/orderRoutes";
 import orderAdminRoutes from "#src/modules/order/routes/orderAdminRoutes";
 import designRoutes from "#src/modules/design/routes/designRoutes";
 import designAdminRoutes from "#src/modules/design/routes/designAdminRoutes";
+import aiRoutes from "#src/modules/ai/routes/aiRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -53,6 +54,7 @@ app.use("/api/v1/admin/products", productAdminRoutes);
 app.use("/api/v1/admin/manufacturing", manufacturingRoutes);
 app.use("/api/v1/admin/designs", designAdminRoutes);
 app.use("/api/v1/admin/orders", orderAdminRoutes);
+app.use("/api/v1/admin/ai", aiRoutes);
 
 app.use((req: Request, _res: Response) => {
   throw new AppError(

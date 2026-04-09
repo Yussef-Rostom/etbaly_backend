@@ -29,9 +29,9 @@ export class ProductAdminController {
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {
-    const product = await ProductAdminService.createProduct(req.body);
+    const product = await ProductAdminService.createProductWithSlicing(req.body);
 
-    sendSuccess(res, 201, "Product created successfully.", { product });
+    sendSuccess(res, 201, "Product created and slicing job dispatched.", { product });
   });
 
   static update = catchAsync(async (req: Request, res: Response) => {

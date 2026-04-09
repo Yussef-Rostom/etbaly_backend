@@ -7,6 +7,14 @@ const objectIdValidator = z
     message: "Invalid ObjectId format",
   });
 
+const customFieldSchema = z.object({
+  fieldName: z.string().trim().min(1, "Field name is required"),
+  fieldType: z.enum(["text", "number", "date"]),
+  isRequired: z.boolean().default(false),
+  label: z.string().trim().min(1, "Label is required"),
+  placeholder: z.string().trim().optional(),
+});
+
 export const createProductSchema = z.object({
   name: z.string().min(1, "Product name is required").trim(),
   description: z.string().trim().optional(),
@@ -15,6 +23,8 @@ export const createProductSchema = z.object({
   isActive: z.boolean().optional(),
   stockLevel: z.number().min(0, "Stock level cannot be negative").optional(),
   linkedDesignId: objectIdValidator,
+  isCustomizable: z.boolean().optional(),
+  customFields: z.array(customFieldSchema).optional(),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
