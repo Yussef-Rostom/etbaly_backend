@@ -1,20 +1,53 @@
 import Settings from "#src/models/Settings";
 
+interface SettingDefinition {
+  key: string;
+  value: string;
+  description: string;
+}
+
+/**
+ * Default settings to initialize in the database.
+ * These settings are created on first startup if they don't exist.
+ */
+const DEFAULT_SETTINGS: SettingDefinition[] = [
+  {
+    key: "LIGHTNING_URL",
+    value: "",
+    description: "Lightning AI service endpoint URL for AI-powered content generation",
+  },
+];
+
 /**
  * Initialize default settings in database if they don't exist.
+ * This ensures all required settings are present for the application to function.
  */
 export const initializeSettings = async (): Promise<void> => {
   try {
-    // Check if LIGHTNING_URL setting exists, create empty if not
-    const existingSetting = await Settings.findOne({ key: "LIGHTNING_URL" });
-    
-    if (!existingSetting) {
-      await Settings.create({
-        key: "LIGHTNING_URL",
-        value: "",
-        description: "Lightning AI service endpoint URL for AI-powered content generation",
-      });
-      console.log("✅ Initialized LIGHTNING_URL setting (empty - configure via admin panel)");
+    const results = await Promise.allSettled(
+      DEFAULT_SETTINGS.map(async (setting) => {
+        const exists = await Settings.findOne({ key: setting.key });
+        
+        if (!exists) {
+          await Settings.create(setting);
+          return { key: setting.key, created: true };
+        }
+        
+        return { key: setting.key, created: false };
+      })
+    );
+
+    const created = results
+      .filter((r) => r.status === "fulfilled" && r.value.created)
+      .map((r) => (r as PromiseFulfilledResult<{ key: string; created: boolean }>).value.key);
+
+    if (created.length > 0) {
+      console.log(`✅ Initialized ${created.length} setting(s): ${created.join(", ")}`);
+    }
+
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      console.warn(`⚠️  Failed to initialize ${failed.length} setting(s)`);
     }
   } catch (error) {
     console.error("❌ Error initializing settings:", error);

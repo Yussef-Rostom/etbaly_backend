@@ -13,7 +13,7 @@ export class AiController {
     });
   });
 
-  static getLightningUrl = catchAsync(async (req: Request, res: Response) => {
+  static getLightningUrl = catchAsync(async (_req: Request, res: Response) => {
     const url = await AiService.getLightningUrl();
 
     sendSuccess(res, 200, "Lightning URL fetched successfully", {

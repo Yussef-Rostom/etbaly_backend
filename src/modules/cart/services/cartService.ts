@@ -356,12 +356,21 @@ export class CartService {
     // Batch validate and recalculate prices to ensure they're current
     // This prevents price manipulation and fixes N+1 query issue
     const itemsForPriceResolution = cart.items
-      .filter((item) => item.materialId !== undefined)
-      .map((item) => ({
-        itemType: item.itemType,
-        itemRefId: item.itemRefId,
-        materialId: item.materialId!,
-      }));
+      .map((item) => {
+        // Validate that items requiring materialId have it
+        if (!item.materialId) {
+          throw new AppError(
+            `Cart item ${item._id} is missing required materialId`,
+            400
+          );
+        }
+        
+        return {
+          itemType: item.itemType,
+          itemRefId: item.itemRefId,
+          materialId: item.materialId,
+        };
+      });
 
     const priceMap = await CartService.batchResolveUnitPrices(
       itemsForPriceResolution,

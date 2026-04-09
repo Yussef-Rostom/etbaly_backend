@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 import app from "#src/app";
 import { connectDB, disconnectDB } from "#src/configs/databaseConfig";
 import { env } from "#src/configs/envConfig";
-import { startAllCronJobs } from "#src/jobs/crons";
 import { setupGracefulShutdown } from "#src/utils/processManager";
 import { initializeSettings } from "#src/utils/initializeSettings";
+import { AppError } from "#src/utils/AppError";
 
 /**
  * Determines the deployment mode based on the RUNNING_METHOD environment variable.
@@ -25,6 +25,8 @@ async function startLocalServer(): Promise<void> {
   // Initialize settings from environment variables
   await initializeSettings();
 
+  // Dynamically import crons only in local mode
+  const { startAllCronJobs } = await import("#src/jobs/crons");
   startAllCronJobs();
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
@@ -49,18 +51,26 @@ async function startLocalServer(): Promise<void> {
 async function serverlessHandler(req: Request, res: Response): Promise<void> {
   try {
     // Ensure database connection exists (reuse existing connection on warm starts)
-    if (mongoose.connection.readyState < 1) {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('🔄 Establishing database connection...');
       await connectDB();
+      
+      // Initialize settings on cold start
+      await initializeSettings();
     }
     
     // Forward request to Express app for processing
     app(req, res);
   } catch (error) {
     console.error('❌ Serverless handler error:', error);
+    
     if (!res.headersSent) {
-      res.status(500).json({
+      const statusCode = error instanceof AppError ? error.statusCode : 500;
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      
+      res.status(statusCode).json({
         success: false,
-        message: 'Internal server error',
+        message,
       });
     }
   }

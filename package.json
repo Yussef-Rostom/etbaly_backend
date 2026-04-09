@@ -6,6 +6,7 @@
   "imports": {
     "#src/models/schemas": "./dist/src/models/schemas/index.js",
     "#src/jobs/mocks": "./dist/src/jobs/mocks/index.js",
+    "#src/jobs/crons": "./dist/src/jobs/crons/index.js",
     "#src/*": {
       "default": "./dist/src/*.js"
     }
