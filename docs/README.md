@@ -10,6 +10,7 @@
 
 ## Table of Contents
 
+- [Deployment](./deployment.md) — Deployment guide for local, Docker, and Vercel environments
 - [Auth](./auth.md) — Registration, login, OTP, Google OAuth, password reset, token refresh
 - [Users](./users.md) — Profile management (client) and user administration (admin)
 - [Products](./products.md) — Public product browsing and admin product CRUD
@@ -17,6 +18,7 @@
 - [Cart](./cart.md) — Cart management and checkout
 - [Orders](./orders.md) — Order history, order tracking, and admin order management
 - [Manufacturing](./manufacturing.md) — Job dispatch for slicing and printing
+- [AI Generation](./ai.md) — Lightning AI service URL management for AI-powered content generation
 
 ---
 

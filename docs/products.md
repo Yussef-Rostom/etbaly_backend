@@ -39,14 +39,29 @@ Returns a paginated list of all active products. Supports filtering, sorting, an
     "products": [
       {
         "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
-        "name": "Vase Model",
-        "description": "A decorative vase",
+        "name": "Custom Keychain",
+        "description": "Personalized keychain with your name",
         "images": ["https://drive.google.com/uc?id=..."],
         "currentBasePrice": 29.99,
-        "isActive": true,
-        "stockLevel": 100,
-        "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
-        "createdAt": "2026-01-01T00:00:00.000Z"
+        "isCustomizable": true,
+        "customFields": [
+          {
+            "fieldName": "customerName",
+            "fieldType": "text",
+            "isRequired": true,
+            "label": "Your Name",
+            "placeholder": "Enter your name"
+          },
+          {
+            "fieldName": "message",
+            "fieldType": "text",
+            "isRequired": false,
+            "label": "Custom Message",
+            "placeholder": "Optional message"
+          }
+        ],
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z"
       }
     ]
   }
@@ -73,14 +88,29 @@ Returns a single active product by its ID.
   "data": {
     "product": {
       "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
-      "name": "Vase Model",
-      "description": "A decorative vase",
+      "name": "Custom Keychain",
+      "description": "Personalized keychain with your name",
       "images": ["https://drive.google.com/uc?id=..."],
       "currentBasePrice": 29.99,
-      "isActive": true,
-      "stockLevel": 100,
-      "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
-      "createdAt": "2026-01-01T00:00:00.000Z"
+      "isCustomizable": true,
+      "customFields": [
+        {
+          "fieldName": "customerName",
+          "fieldType": "text",
+          "isRequired": true,
+          "label": "Your Name",
+          "placeholder": "Enter your name"
+        },
+        {
+          "fieldName": "message",
+          "fieldType": "text",
+          "isRequired": false,
+          "label": "Custom Message",
+          "placeholder": "Optional message"
+        }
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
     }
   }
 }
@@ -179,6 +209,18 @@ Creates a new product.
   - *Validation:* Min 0
   - *Description:* Current stock quantity (default: `0`)
 
+- **`isCustomizable`** (*boolean*, Optional)
+  - *Description:* Whether the product allows customization (default: `false`)
+
+- **`customFields`** (*array*, Optional)
+  - *Description:* Array of custom field definitions that users must fill when adding to cart. **Required when `isCustomizable` is `true`**
+  - Each field object contains:
+    - **`fieldName`** (*string*, Required) — Unique identifier for the field (e.g., "customerName")
+    - **`fieldType`** (*string*, Required) — Field type: `"text"`, `"number"`, or `"date"`
+    - **`isRequired`** (*boolean*, Required) — Whether this field must be filled by the user
+    - **`label`** (*string*, Required) — Display label shown to the user (e.g., "Your Name")
+    - **`placeholder`** (*string*, Optional) — Placeholder text for the input field
+
 **Response 201 — Created**
 ```json
 {
@@ -187,13 +229,50 @@ Creates a new product.
   "data": {
     "product": {
       "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
-      "name": "Vase Model",
+      "name": "Custom Keychain",
       "currentBasePrice": 29.99,
       "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
       "isActive": true,
-      "stockLevel": 0
+      "stockLevel": 0,
+      "isCustomizable": true,
+      "customFields": [
+        {
+          "fieldName": "customerName",
+          "fieldType": "text",
+          "isRequired": true,
+          "label": "Your Name",
+          "placeholder": "Enter your name"
+        }
+      ]
     }
   }
+}
+```
+
+**Example Request Body for Customizable Product:**
+```json
+{
+  "name": "Custom Keychain",
+  "description": "Personalized keychain with your name engraved",
+  "currentBasePrice": 29.99,
+  "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
+  "isCustomizable": true,
+  "customFields": [
+    {
+      "fieldName": "customerName",
+      "fieldType": "text",
+      "isRequired": true,
+      "label": "Your Name",
+      "placeholder": "Enter your name (max 20 characters)"
+    },
+    {
+      "fieldName": "birthDate",
+      "fieldType": "date",
+      "isRequired": false,
+      "label": "Birth Date",
+      "placeholder": "Optional birth date"
+    }
+  ]
 }
 ```
 
@@ -219,6 +298,14 @@ Creates a new product.
 {
   "success": false,
   "message": "Image URL was not uploaded to our storage: <url>"
+}
+```
+
+**Response 400 — Customization Validation Error**
+```json
+{
+  "success": false,
+  "message": "Products marked as customizable must have at least one custom field defined"
 }
 ```
 
@@ -317,6 +404,18 @@ Partially updates a product. All fields are optional.
 
 - **`stockLevel`** (*number*, Optional)
   - *Validation:* Min 0
+
+- **`isCustomizable`** (*boolean*, Optional)
+  - *Description:* Whether the product allows customization
+
+- **`customFields`** (*array*, Optional)
+  - *Description:* Array of custom field definitions. **Required when `isCustomizable` is `true`**
+  - Each field object contains:
+    - **`fieldName`** (*string*, Required) — Unique identifier for the field
+    - **`fieldType`** (*string*, Required) — Field type: `"text"`, `"number"`, or `"date"`
+    - **`isRequired`** (*boolean*, Required) — Whether this field must be filled
+    - **`label`** (*string*, Required) — Display label for the user
+    - **`placeholder`** (*string*, Optional) — Placeholder text
 
 **Response 200 — OK**
 ```json

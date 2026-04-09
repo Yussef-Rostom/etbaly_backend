@@ -18,7 +18,7 @@ export class CartService {
   private static async resolveUnitPrice(
     itemType: "Product" | "Design",
     itemRefId: string,
-    materialId?: string,
+    materialId: string,
   ): Promise<number> {
     if (itemType === "Product") {
       const product = await Product.findOne({
@@ -28,6 +28,16 @@ export class CartService {
       if (!product) {
         throw new AppError("Product not found or not currently active.", 404);
       }
+      
+      // Validate material exists even for products
+      const material = await Material.findOne({
+        _id: materialId,
+        isActive: true,
+      });
+      if (!material) {
+        throw new AppError("Material not found or not currently active.", 404);
+      }
+      
       return product.currentBasePrice;
     }
 
@@ -59,7 +69,7 @@ export class CartService {
     items: Array<{
       itemType: "Product" | "Design";
       itemRefId: Types.ObjectId;
-      materialId?: Types.ObjectId;
+      materialId: Types.ObjectId;
     }>,
   ): Promise<Map<string, number>> {
     const priceMap = new Map<string, number>();
@@ -67,6 +77,29 @@ export class CartService {
     // Separate items by type
     const productItems = items.filter((item) => item.itemType === "Product");
     const designItems = items.filter((item) => item.itemType === "Design");
+
+    // Collect all material IDs for validation
+    const allMaterialIds = items.map((item) => item.materialId);
+
+    // Batch fetch materials for validation
+    const materials = await Material.find({
+      _id: { $in: allMaterialIds },
+      isActive: true,
+    });
+
+    const materialPriceMap = new Map(
+      materials.map((m) => [m._id.toString(), m.currentPricePerGram]),
+    );
+
+    // Validate all materials exist
+    for (const item of items) {
+      if (!materialPriceMap.has(item.materialId.toString())) {
+        throw new AppError(
+          `Material ${item.materialId} not found or not currently active.`,
+          404,
+        );
+      }
+    }
 
     // Batch fetch products
     if (productItems.length > 0) {
@@ -92,38 +125,20 @@ export class CartService {
       }
     }
 
-    // Batch fetch designs and materials
+    // Batch fetch designs
     if (designItems.length > 0) {
       const designIds = designItems.map((item) => item.itemRefId);
-      const materialIds = designItems
-        .filter((item) => item.materialId)
-        .map((item) => item.materialId!);
 
-      const [designs, materials] = await Promise.all([
-        Design.find({ _id: { $in: designIds } }),
-        materialIds.length > 0
-          ? Material.find({ _id: { $in: materialIds }, isActive: true })
-          : Promise.resolve([]),
-      ]);
+      const designs = await Design.find({ _id: { $in: designIds } });
 
       const designMap = new Map(
         designs.map((d) => [d._id.toString(), d.metadata.volumeCm3]),
-      );
-      const materialPriceMap = new Map(
-        materials.map((m) => [m._id.toString(), m.currentPricePerGram]),
       );
 
       for (const item of designItems) {
         const volumeCm3 = designMap.get(item.itemRefId.toString());
         if (volumeCm3 === undefined) {
           throw new AppError(`Design ${item.itemRefId} not found.`, 404);
-        }
-
-        if (!item.materialId) {
-          throw new AppError(
-            `Material ID is required for design ${item.itemRefId}.`,
-            400,
-          );
         }
 
         const pricePerGram = materialPriceMap.get(item.materialId.toString());
@@ -184,10 +199,6 @@ export class CartService {
     userId: string,
     dto: AddCartItemInput,
   ): Promise<ICart> {
-    if (dto.itemType === "Design" && !dto.materialId) {
-      throw new AppError("materialId is required for Design items.", 400);
-    }
-
     const unitPrice = await CartService.resolveUnitPrice(
       dto.itemType,
       dto.itemRefId,
@@ -216,9 +227,7 @@ export class CartService {
 
     const existingItem = cart.items.find((item) => {
       const sameRef = item.itemRefId.equals(new Types.ObjectId(dto.itemRefId));
-      const sameMaterial = dto.materialId
-        ? item.materialId?.equals(new Types.ObjectId(dto.materialId))
-        : !item.materialId;
+      const sameMaterial = item.materialId?.equals(new Types.ObjectId(dto.materialId));
       const sameCustomization =
         JSON.stringify(item.customization) ===
         JSON.stringify(dto.customization);
@@ -235,9 +244,7 @@ export class CartService {
         quantity: dto.quantity,
         unitPrice,
         customization: dto.customization,
-        materialId: dto.materialId
-          ? new Types.ObjectId(dto.materialId)
-          : undefined,
+        materialId: new Types.ObjectId(dto.materialId),
       } as any);
     }
 

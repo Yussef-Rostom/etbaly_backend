@@ -79,8 +79,9 @@ Adds an item to the cart. If the item already exists with the same configuration
   - *Validation:* Integer, min 1
   - *Description:* Number of units to add
 
-- **`materialId`** (*string*, Conditionally Required)
-  - *Description:* MongoDB ObjectId of the Material to use for printing. **Required when `itemType` is `"Design"`**; ignored for `"Product"` items.
+- **`materialId`** (*string*, Required)
+  - *Validation:* Must be a strict 24-character hex MongoDB ObjectId (Regex validated: `/^[0-9a-fA-F]{24}$/`)
+  - *Description:* MongoDB ObjectId of the Material to use for printing. **Required for all item types** (`"Product"` and `"Design"`).
 
 - **`customization`** (*object*, Optional)
   - *Description:* 3D printing customization parameters
@@ -108,9 +109,9 @@ Adds an item to the cart. If the item already exists with the same configuration
 }
 ```
 
-**Response 400 — Missing Material for Design**
+**Response 400 — Missing Material**
 ```json
-{ "success": false, "message": "materialId is required for Design items." }
+{ "success": false, "message": "Material not found or not currently active." }
 ```
 
 **Response 404 — Item Not Found**
