@@ -148,3 +148,4 @@ vite.config.ts.timestamp-*
 .kiro
 .postman.json
 etb3haly-postman-collection.json
+.VSCodeCounter
