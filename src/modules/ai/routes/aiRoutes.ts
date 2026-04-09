@@ -7,19 +7,15 @@ import { setLightningUrlSchema } from "#src/modules/ai/validators/aiValidators";
 
 const router = Router();
 
-// Admin only routes
+// Public routes
 router.post(
   "/set-lightning-url",
-  authMiddleware,
-  restrictTo("admin"),
   validate(setLightningUrlSchema),
   AiController.setLightningUrl,
 );
 
 router.get(
   "/lightning-url",
-  authMiddleware,
-  restrictTo("admin"),
   AiController.getLightningUrl,
 );
 

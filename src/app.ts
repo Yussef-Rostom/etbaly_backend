@@ -29,6 +29,7 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/favicon.ico", (_req: Request, res: Response) => res.status(204).end());
+app.get("/favicon.png", (_req: Request, res: Response) => res.status(204).end());
 app.get("/", (_req: Request, res: Response) => res.send(getHomePage(env.APP_ENV)));
 
 app.get("/api/v1/health", (_req: Request, res: Response) => {

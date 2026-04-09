@@ -31,8 +31,7 @@ const settingsSchema = new Schema<ISettings>(
   }
 );
 
-// Index for faster lookups
-settingsSchema.index({ key: 1 });
+// Note: unique: true on key field already creates an index, no need for explicit index
 
 const Settings = mongoose.model<ISettings>("Settings", settingsSchema);
 
