@@ -18,7 +18,8 @@ const settingsSchema = new Schema<ISettings>(
     },
     value: {
       type: String,
-      required: [true, "Setting value is required"],
+      required: false,
+      default: "",
     },
     description: {
       type: String,

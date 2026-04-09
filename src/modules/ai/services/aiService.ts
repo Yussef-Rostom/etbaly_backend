@@ -46,7 +46,7 @@ export class AiService {
       },
       { 
         upsert: true, 
-        new: true,
+        returnDocument: 'after',
         runValidators: true
       }
     );

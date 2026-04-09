@@ -31,7 +31,7 @@ async function startLocalServer(): Promise<void> {
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(
-      `🚀 Server running in ${env.NODE_ENV} mode on port ${env.PORT}`,
+      `🚀 Server running in ${env.APP_ENV} mode on port ${env.PORT}`,
     );
     console.log(`📍 Health check: http://0.0.0.0:${env.PORT}/api/v1/health`);
   });

@@ -24,18 +24,18 @@ const app = express();
 
 app.use(helmet());
 app.use(cors());
-app.use(morgan(env.NODE_ENV === "development" ? "dev" : "combined"));
+app.use(morgan(env.APP_ENV === "development" ? "dev" : "combined"));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/favicon.ico", (_req: Request, res: Response) => res.status(204).end());
-app.get("/", (_req: Request, res: Response) => res.send(getHomePage(env.NODE_ENV)));
+app.get("/", (_req: Request, res: Response) => res.send(getHomePage(env.APP_ENV)));
 
 app.get("/api/v1/health", (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "Server is running 🚀",
-    environment: env.NODE_ENV,
+    environment: env.APP_ENV,
     timestamp: new Date().toISOString(),
   });
 });

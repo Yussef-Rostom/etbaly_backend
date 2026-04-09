@@ -6,7 +6,7 @@ export const connectDB = async (): Promise<void> => {
     return;
   }
   try {
-    const dbName = env.NODE_ENV === "production" ? "production" : "development";
+    const dbName = env.APP_ENV === "production" ? "production" : "development";
     const conn = await mongoose.connect(env.MONGODB_URI, {
       dbName: dbName,
       appName: "Cluster0",

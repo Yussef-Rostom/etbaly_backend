@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 export const env = {
-  NODE_ENV: process.env.NODE_ENV || "development",
+  APP_ENV: process.env.APP_ENV || "development",
   PORT: parseInt(process.env.PORT || "3000", 10),
   MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017/etbaly",
   JWT_SECRET: process.env.JWT_SECRET || "default-secret-change-me",

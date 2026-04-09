@@ -30,16 +30,16 @@ export const initializeSettings = async (): Promise<void> => {
         
         if (!exists) {
           await Settings.create(setting);
-          return { key: setting.key, created: true };
+          return { key: setting.key, created: true, error: null };
         }
         
-        return { key: setting.key, created: false };
+        return { key: setting.key, created: false, error: null };
       })
     );
 
     const created = results
       .filter((r) => r.status === "fulfilled" && r.value.created)
-      .map((r) => (r as PromiseFulfilledResult<{ key: string; created: boolean }>).value.key);
+      .map((r) => (r as PromiseFulfilledResult<{ key: string; created: boolean; error: null }>).value.key);
 
     if (created.length > 0) {
       console.log(`✅ Initialized ${created.length} setting(s): ${created.join(", ")}`);
@@ -48,6 +48,11 @@ export const initializeSettings = async (): Promise<void> => {
     const failed = results.filter((r) => r.status === "rejected");
     if (failed.length > 0) {
       console.warn(`⚠️  Failed to initialize ${failed.length} setting(s)`);
+      failed.forEach((result) => {
+        if (result.status === "rejected") {
+          console.error("   Error:", result.reason);
+        }
+      });
     }
   } catch (error) {
     console.error("❌ Error initializing settings:", error);

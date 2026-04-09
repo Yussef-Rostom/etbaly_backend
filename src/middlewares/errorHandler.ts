@@ -35,7 +35,7 @@ export const globalErrorHandler = (
   err.statusCode = err.statusCode || 500;
   err.message = err.message || "Internal Server Error";
 
-  if (env.NODE_ENV === "development") {
+  if (env.APP_ENV === "development") {
     console.error("🔥 ERROR:", err);
   }
 
@@ -52,6 +52,6 @@ export const globalErrorHandler = (
     error.statusCode || 500,
     error.message,
     undefined,
-    env.NODE_ENV === "development" ? err.stack : undefined,
+    env.APP_ENV === "development" ? err.stack : undefined,
   );
 };
