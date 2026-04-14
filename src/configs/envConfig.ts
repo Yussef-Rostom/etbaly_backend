@@ -19,4 +19,5 @@ export const env = {
   DRIVE_REFRESH_TOKEN: process.env.DRIVE_REFRESH_TOKEN || "",
   DRIVE_FOLDER_ID: process.env.DRIVE_FOLDER_ID || "",
   RUNNING_METHOD: process.env.RUNNING_METHOD || "default",
+  LIGHTNING_URL: process.env.LIGHTNING_URL || "",
 } as const;
