@@ -14,6 +14,23 @@ const router = Router();
 const uploadDesign = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "model/stl",
+      "application/octet-stream",
+      "model/obj",
+      "application/vnd.ms-pki.stl",
+      "application/sla",
+    ];
+    if (
+      allowed.includes(file.mimetype) ||
+      /\.(stl|obj|3mf|ply|amf)$/i.test(file.originalname)
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only 3D design files (STL, OBJ, 3MF, PLY, AMF) are allowed."));
+    }
+  },
 });
 
 // ─── Admin routes ─────────────────────────────────────────────────────────────

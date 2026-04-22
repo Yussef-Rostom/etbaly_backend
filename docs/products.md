@@ -335,7 +335,8 @@ Uploads a product image to Google Drive and returns the public URL. Use the retu
   "success": true,
   "message": "Product image uploaded successfully.",
   "data": {
-    "imageUrl": "https://drive.google.com/uc?id=..."
+    "fileId": "1a2b3c4d5e6f7g8h9i0j",
+    "fileUrl": "https://drive.google.com/uc?export=view&id=1a2b3c4d5e6f7g8h9i0j"
   }
 }
 ```

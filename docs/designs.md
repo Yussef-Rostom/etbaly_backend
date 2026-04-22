@@ -12,6 +12,32 @@ All routes in this section require authentication (`Bearer <accessToken>`). Visi
 
 ---
 
+### `POST /api/v1/designs/upload`
+
+- **Access:** Authenticated (any role)
+- **Content-Type:** `multipart/form-data`
+
+Uploads a 3D design file (e.g. `.stl`, `.obj`, `.3mf`) to Google Drive and returns the public URL and file ID. The file is stored in the `designs/` folder on Drive.
+
+**Form Fields**
+
+- **`file`** (*file*, Required) — Max 50 MB
+- **`name`** (*string*, Required) — Display name for the file (used in validation)
+
+**Response 201 — Created**
+```json
+{
+  "success": true,
+  "message": "Design file uploaded successfully.",
+  "data": {
+    "fileId": "1a2b3c4d5e6f7g8h9i0j",
+    "fileUrl": "https://drive.google.com/uc?export=view&id=1a2b3c4d5e6f7g8h9i0j"
+  }
+}
+```
+
+---
+
 ### `GET /api/v1/designs`
 
 - **Access:** Authenticated (any role)
@@ -123,7 +149,8 @@ Uploads a 3D design file (e.g. `.stl`, `.obj`) to Google Drive and returns the p
   "success": true,
   "message": "Design file uploaded successfully",
   "data": {
-    "fileUrl": "https://drive.google.com/uc?id=..."
+    "fileId": "1a2b3c4d5e6f7g8h9i0j",
+    "fileUrl": "https://drive.google.com/uc?export=view&id=1a2b3c4d5e6f7g8h9i0j"
   }
 }
 ```

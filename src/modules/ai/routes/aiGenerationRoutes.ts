@@ -3,7 +3,11 @@ import multer from "multer";
 import { AiGenerationController } from "#src/modules/ai/controllers/aiGenerationController";
 import { authMiddleware } from "#src/middlewares/authMiddleware";
 import { validate } from "#src/middlewares/validate";
-import { generateDesignSchema } from "#src/modules/ai/validators/aiGenerationValidators";
+import { 
+  generateDesignFromImageSchema, 
+  generateImageFromTextSchema,
+  validateImageUpload
+} from "#src/modules/ai/validators/aiGenerationValidators";
 
 const router = Router();
 
@@ -23,12 +27,26 @@ const uploadImage = multer({
 // All routes require authentication
 router.use(authMiddleware);
 
-// POST /api/v1/ai/generate-design
+// POST /api/v1/ai/image-to-3d
 router.post(
-  "/generate-design",
+  "/image-to-3d",
   uploadImage.single("image"),
-  validate(generateDesignSchema),
+  validateImageUpload,
+  validate(generateDesignFromImageSchema),
   AiGenerationController.generateDesignFromImage,
+);
+
+// POST /api/v1/ai/text-to-image
+router.post(
+  "/text-to-image",
+  validate(generateImageFromTextSchema),
+  AiGenerationController.generateImageFromText,
+);
+
+// GET /api/v1/ai/job/:queueName/:jobId
+router.get(
+  "/job/:queueName/:jobId",
+  AiGenerationController.getJobStatus,
 );
 
 export default router;

@@ -5,7 +5,8 @@ import { ManufacturingJob } from "#src/models/ManufacturingJob";
 import { AppError } from "#src/utils/AppError";
 import { uploadImage } from "#src/utils/drive";
 import { APIFeatures } from "#src/utils/apiFeatures";
-import { dispatchJob } from "#src/utils/queueManager";
+import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
+import { SlicingJobData } from "#src/workers/registry";
 import type {
   CreateProductInput,
   UpdateProductInput,
@@ -34,19 +35,16 @@ export class ProductAdminService {
     return product;
   }
 
-  static async uploadProductImage(file: Express.Multer.File): Promise<string> {
-    const fileUrl = await uploadImage(file.buffer, file.originalname, file.mimetype);
-
-    const url = new URL(fileUrl);
-    const driveFileId = url.searchParams.get("id")!;
+  static async uploadProductImage(file: Express.Multer.File): Promise<{ fileUrl: string; fileId: string }> {
+    const { fileId, publicUrl } = await uploadImage(file.buffer, file.originalname, file.mimetype);
 
     await Upload.findOneAndUpdate(
-      { driveFileId },
-      { driveFileId, fileUrl, isUsed: false },
+      { driveFileId: fileId },
+      { driveFileId: fileId, fileUrl: publicUrl, isUsed: false },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    return fileUrl;
+    return { fileUrl: publicUrl, fileId };
   }
 
   static async createProduct(data: CreateProductInput): Promise<IProduct> {
@@ -177,12 +175,15 @@ export class ProductAdminService {
         fileName,
       });
 
-      // Dispatch job to slicing queue using dispatchJob
-      await dispatchJob("slicing-tasks", "slice-model", {
-        manufacturingJobId: job._id.toString(),
-        fileName,
-        productId: product._id.toString(),
-      });
+      // Dispatch job to slicing queue 
+      const slicingQueue = queueManager.getQueue(QUEUE_NAMES.SLICING);
+      await slicingQueue.add("slice-model", {
+        modelFileKey: fileName,
+        designId: job._id.toString(),
+        material: "PLA", // default material
+        ownerId: "system", // default owner
+        correlationId: `slice-${job._id.toString()}-${Date.now()}`
+      } as SlicingJobData);
 
       // Mark images as used after successful job creation and dispatch
       if (data.images?.length) {

@@ -106,7 +106,7 @@ export class UserService {
     userId: string,
     fileBuffer: Buffer,
     mimeType: string,
-  ): Promise<string> {
+  ): Promise<{ avatarUrl: string; fileId: string }> {
     const user = await User.findById(userId);
     if (!user) {
       throw new AppError("User not found.", 404);
@@ -140,6 +140,6 @@ export class UserService {
     // Mark the new upload as used
     await Upload.findOneAndUpdate({ driveFileId: fileId }, { isUsed: true });
 
-    return publicUrl;
+    return { avatarUrl: publicUrl, fileId };
   }
 }

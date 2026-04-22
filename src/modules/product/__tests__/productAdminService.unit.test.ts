@@ -4,7 +4,7 @@ import { Product } from "#src/models/Product";
 import { Design } from "#src/models/Design";
 import { ManufacturingJob } from "#src/models/ManufacturingJob";
 import { Upload } from "#src/models/Upload";
-import { dispatchJob } from "#src/utils/queueManager";
+import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
 import { AppError } from "#src/utils/AppError";
 
 // Mock dependencies
@@ -12,7 +12,14 @@ jest.mock("#src/models/Product");
 jest.mock("#src/models/Design");
 jest.mock("#src/models/ManufacturingJob");
 jest.mock("#src/models/Upload");
-jest.mock("#src/utils/queueManager");
+jest.mock("#src/utils/queueManager", () => ({
+  queueManager: {
+    getQueue: jest.fn(),
+  },
+  QUEUE_NAMES: {
+    SLICING: "SLICING"
+  }
+}));
 
 describe("ProductAdminService Helper Functions", () => {
   describe("extractFileName", () => {
@@ -117,7 +124,8 @@ describe("ProductAdminService.createProductWithSlicing", () => {
     (Design.findById as jest.Mock).mockResolvedValue(mockDesign);
     (Product.create as jest.Mock).mockResolvedValue(mockProduct);
     (ManufacturingJob.create as jest.Mock).mockResolvedValue(mockJob);
-    (dispatchJob as jest.Mock).mockResolvedValue({ id: "mock-123" });
+    const mockQueue = { add: jest.fn().mockResolvedValue({ id: "mock-123" }) };
+    (queueManager.getQueue as jest.Mock).mockReturnValue(mockQueue);
 
     const result = await ProductAdminService.createProductWithSlicing({
       name: "Test Product",
@@ -150,7 +158,8 @@ describe("ProductAdminService.createProductWithSlicing", () => {
     (Design.findById as jest.Mock).mockResolvedValue(mockDesign);
     (Product.create as jest.Mock).mockResolvedValue(mockProduct);
     (ManufacturingJob.create as jest.Mock).mockResolvedValue({ _id: "job123" });
-    (dispatchJob as jest.Mock).mockResolvedValue({ id: "mock-123" });
+    const mockQueue = { add: jest.fn().mockResolvedValue({ id: "mock-123" }) };
+    (queueManager.getQueue as jest.Mock).mockReturnValue(mockQueue);
 
     await ProductAdminService.createProductWithSlicing({
       name: "Test Product",
@@ -186,7 +195,8 @@ describe("ProductAdminService.createProductWithSlicing", () => {
     (Design.findById as jest.Mock).mockResolvedValue(mockDesign);
     (Product.create as jest.Mock).mockResolvedValue(mockProduct);
     (ManufacturingJob.create as jest.Mock).mockResolvedValue(mockJob);
-    (dispatchJob as jest.Mock).mockResolvedValue({ id: "mock-123" });
+    const mockQueue = { add: jest.fn().mockResolvedValue({ id: "mock-123" }) };
+    (queueManager.getQueue as jest.Mock).mockReturnValue(mockQueue);
 
     await ProductAdminService.createProductWithSlicing({
       name: "Test Product",
@@ -195,13 +205,12 @@ describe("ProductAdminService.createProductWithSlicing", () => {
       stockLevel: 10,
     });
 
-    expect(dispatchJob).toHaveBeenCalledWith(
-      "slicing-tasks",
+    expect(mockQueue.add).toHaveBeenCalledWith(
       "slice-model",
       expect.objectContaining({
-        manufacturingJobId: "job123",
-        fileName: "model.stl",
-        productId: "product123",
+        designId: "job123",
+        modelFileKey: "model.stl",
+        correlationId: expect.any(String)
       })
     );
   });
@@ -294,7 +303,8 @@ describe("ProductAdminService.createProductWithSlicing", () => {
     (Design.findById as jest.Mock).mockResolvedValue(mockDesign);
     (Product.create as jest.Mock).mockResolvedValue(mockProduct);
     (ManufacturingJob.create as jest.Mock).mockResolvedValue(mockJob);
-    (dispatchJob as jest.Mock).mockRejectedValue(new Error("Dispatch failed"));
+    const mockQueue = { add: jest.fn().mockRejectedValue(new Error("Dispatch failed")) };
+    (queueManager.getQueue as jest.Mock).mockReturnValue(mockQueue);
     (Product.findByIdAndDelete as jest.Mock).mockResolvedValue(mockProduct);
 
     await expect(
@@ -333,7 +343,8 @@ describe("ProductAdminService.createProductWithSlicing", () => {
     (Upload.findOne as jest.Mock).mockResolvedValue(mockUpload);
     (Product.create as jest.Mock).mockResolvedValue(mockProduct);
     (ManufacturingJob.create as jest.Mock).mockResolvedValue(mockJob);
-    (dispatchJob as jest.Mock).mockResolvedValue({ id: "mock-123" });
+    const mockQueue = { add: jest.fn().mockResolvedValue({ id: "mock-123" }) };
+    (queueManager.getQueue as jest.Mock).mockReturnValue(mockQueue);
     (Upload.updateMany as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
 
     await ProductAdminService.createProductWithSlicing({

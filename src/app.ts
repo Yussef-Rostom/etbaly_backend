@@ -16,6 +16,7 @@ import designRoutes from "#src/modules/design/routes/designRoutes";
 import designAdminRoutes from "#src/modules/design/routes/designAdminRoutes";
 import aiGenerationRoutes from "#src/modules/ai/routes/aiGenerationRoutes";
 import aiAdminRoutes from "#src/modules/ai/routes/aiAdminRoutes";
+import fileRoutes from "#src/modules/files/routes/fileRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -33,13 +34,34 @@ app.get("/favicon.ico", (_req: Request, res: Response) => res.status(204).end())
 app.get("/favicon.png", (_req: Request, res: Response) => res.status(204).end());
 app.get("/", (_req: Request, res: Response) => res.send(getHomePage(env.APP_ENV)));
 
-app.get("/api/v1/health", (_req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: "Server is running 🚀",
-    environment: env.APP_ENV,
-    timestamp: new Date().toISOString(),
-  });
+app.get("/api/v1/health", async (_req: Request, res: Response) => {
+  try {
+    const aiQueue = (await import("#src/utils/queueManager")).queueManager.getQueue("AI_GENERATION");
+    
+    // Check Redis connection via BullMQ client
+    const client = await aiQueue.client;
+    const redisStatus = await client.ping();
+
+    // Check capacities
+    const aiJobsCount = await aiQueue.getJobCounts('wait', 'active', 'failed');
+
+    res.status(200).json({
+      success: true,
+      message: "Server is running 🚀",
+      environment: env.APP_ENV,
+      timestamp: new Date().toISOString(),
+      queueStatus: {
+        redis: redisStatus === "PONG" ? "connected" : "disconnected",
+        aiQueue: aiJobsCount
+      }
+    });
+  } catch (error: any) {
+    res.status(503).json({
+      success: false,
+      message: "Health check failed",
+      error: error.message
+    });
+  }
 });
 
 // ─── Public Routes ────────────────────────────────────────────────────────────
@@ -50,6 +72,7 @@ app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/designs", designRoutes);
 app.use("/api/v1/ai", aiGenerationRoutes);
+app.use("/api/v1/files", fileRoutes);
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
 app.use("/api/v1/admin/users", userAdminRoutes);

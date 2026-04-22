@@ -19,5 +19,7 @@ export const env = {
   DRIVE_REFRESH_TOKEN: process.env.DRIVE_REFRESH_TOKEN || "",
   DRIVE_FOLDER_ID: process.env.DRIVE_FOLDER_ID || "",
   RUNNING_METHOD: process.env.RUNNING_METHOD || "default",
-  LIGHTNING_URL: process.env.LIGHTNING_URL || "",
+  REDIS_HOST: process.env.REDIS_HOST || "localhost",
+  REDIS_PORT: parseInt(process.env.REDIS_PORT || "6379", 10),
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || "etbaly_redis_pass",
 } as const;

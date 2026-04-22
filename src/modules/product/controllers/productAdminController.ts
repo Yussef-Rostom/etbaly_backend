@@ -23,9 +23,9 @@ export class ProductAdminController {
   static uploadImage = catchAsync(async (req: Request, res: Response) => {
     if (!req.file) throw new AppError("Image file is required.", 400);
 
-    const imageUrl = await ProductAdminService.uploadProductImage(req.file);
+    const { fileUrl, fileId } = await ProductAdminService.uploadProductImage(req.file);
 
-    sendSuccess(res, 200, "Product image uploaded successfully.", { imageUrl });
+    sendSuccess(res, 200, "Product image uploaded successfully.", { fileUrl, fileId });
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {

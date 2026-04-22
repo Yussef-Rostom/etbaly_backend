@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Design, IDesign } from "#src/models/Design";
 import { Upload } from "#src/models/Upload";
-import { uploadImage } from "#src/utils/drive";
+import { uploadDesignFile } from "#src/utils/drive";
 import { AppError } from "#src/utils/AppError";
 import {
   CreateDesignInput,
@@ -17,24 +17,29 @@ function extractDriveFileId(fileUrl: string): string | null {
 }
 
 export class DesignAdminService {
-  static async uploadDesignFile(file: Express.Multer.File): Promise<string> {
-    let fileUrl: string;
+  /**
+   * Uploads a design file to the shared "designs" Drive folder.
+   * Records an Upload tracker so createDesign() can verify provenance.
+   */
+  static async uploadDesignFile(file: Express.Multer.File): Promise<{ fileUrl: string; fileId: string }> {
+    let result: { fileId: string; publicUrl: string };
     try {
-      fileUrl = await uploadImage(file.buffer, file.originalname, file.mimetype);
+      result = await uploadDesignFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+      );
     } catch {
       throw new AppError("Failed to upload design file to Google Drive.", 500);
     }
 
-    const driveFileId = extractDriveFileId(fileUrl);
-    if (driveFileId) {
-      await Upload.findOneAndUpdate(
-        { driveFileId },
-        { driveFileId, fileUrl, isUsed: false },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
-    }
+    await Upload.findOneAndUpdate(
+      { driveFileId: result.fileId },
+      { driveFileId: result.fileId, fileUrl: result.publicUrl, isUsed: false },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
-    return fileUrl;
+    return { fileUrl: result.publicUrl, fileId: result.fileId };
   }
 
   static async createDesign(userId: string, dto: CreateDesignInput): Promise<IDesign> {

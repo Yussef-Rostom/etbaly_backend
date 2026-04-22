@@ -9,9 +9,9 @@ export class DesignAdminController {
   static uploadFile = catchAsync(async (req: Request, res: Response) => {
     if (!req.file) throw new AppError("Design file is required.", 400);
 
-    const fileUrl = await DesignAdminService.uploadDesignFile(req.file);
+    const { fileUrl, fileId } = await DesignAdminService.uploadDesignFile(req.file);
 
-    sendSuccess(res, 200, "Design file uploaded successfully", { fileUrl });
+    sendSuccess(res, 200, "Design file uploaded successfully", { fileUrl, fileId });
   });
 
   static create = catchAsync(async (req: Request, res: Response) => {

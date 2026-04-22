@@ -6,6 +6,7 @@ import { env } from "#src/configs/envConfig";
 import { setupGracefulShutdown } from "#src/utils/processManager";
 import { initializeSettings } from "#src/utils/initializeSettings";
 import { AppError } from "#src/utils/AppError";
+import { redisCache } from "#src/utils/redisCache";
 
 /**
  * Determines the deployment mode based on the RUNNING_METHOD environment variable.
@@ -22,8 +23,19 @@ function getDeploymentMode(): 'local' | 'serverless' {
 async function startLocalServer(): Promise<void> {
   await connectDB();
 
+  // Initialize Redis cache connection
+  await redisCache.connect();
+
   // Initialize settings from environment variables
   await initializeSettings();
+
+  // Run Lightning AI URL migration
+  const { migrateLightningAiUrls } = await import("#src/migrations/migrateLightningAiUrls");
+  await migrateLightningAiUrls();
+
+  // Initialize BullMQ workers
+  const { initializeWorkers, shutdownAllWorkers } = await import("#src/workers");
+  initializeWorkers();
 
   // Dynamically import crons only in local mode
   const { startAllCronJobs } = await import("#src/jobs/crons");
@@ -38,6 +50,8 @@ async function startLocalServer(): Promise<void> {
 
   setupGracefulShutdown("API Server", [
     () => new Promise((resolve) => server.close(resolve)),
+    async () => await shutdownAllWorkers(),
+    async () => await redisCache.disconnect(),
     async () => await disconnectDB(),
   ]);
 }
@@ -55,8 +69,15 @@ async function serverlessHandler(req: Request, res: Response): Promise<void> {
       console.log('🔄 Establishing database connection...');
       await connectDB();
       
+      // Initialize Redis cache connection
+      await redisCache.connect();
+      
       // Initialize settings on cold start
       await initializeSettings();
+      
+      // Run Lightning AI URL migration
+      const { migrateLightningAiUrls } = await import("#src/migrations/migrateLightningAiUrls");
+      await migrateLightningAiUrls();
     }
     
     // Forward request to Express app for processing

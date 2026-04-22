@@ -194,7 +194,8 @@ Uploads a new avatar image for the authenticated user. The image is stored on Go
   "success": true,
   "message": "Avatar uploaded successfully.",
   "data": {
-    "avatarUrl": "https://drive.google.com/uc?id=..."
+    "fileId": "1a2b3c4d5e6f7g8h9i0j",
+    "avatarUrl": "https://drive.google.com/uc?export=view&id=1a2b3c4d5e6f7g8h9i0j"
   }
 }
 ```

@@ -1,47 +1,56 @@
-// Mock implementation for Vercel/Serverless environments
-import { processMockJob } from "#src/jobs/mocks";
+// src/utils/queueManager.ts
+import { Queue, DefaultJobOptions } from "bullmq";
+import { redisConfig } from "#src/configs/redisConfig";
 
-export interface MockJobsOptions {
-  attempts?: number;
-  backoff?: { type: string; delay: number };
-  removeOnComplete?: boolean | { count: number };
-  removeOnFail?: boolean | { count: number };
-}
+export const QUEUE_NAMES = {
+  AI_GENERATION: "AI_GENERATION",
+  TEXT_TO_IMAGE: "TEXT_TO_IMAGE",
+  SLICING: "SLICING",
+  PRINTING: "PRINTING",
+  MANUFACTURING: "MANUFACTURING",
+  DLQ: "DEAD_LETTER_QUEUE", // Global Dead Letter Queue
+} as const;
 
-export interface MockJobResult {
-  id: string;
-  queueName: string;
-  jobName: string;
-  mock: true;
-}
+export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];
 
-export type DispatchResult<TData = unknown, TResult = unknown> = MockJobResult;
-
-/**
- * Dispatch a background job in a platform-agnostic way.
- * This returns the mock ID instantly (to unblock the caller), 
- * while triggering the mock worker asynchronously in the background.
- */
-export const dispatchJob = async <TData = unknown, TResult = unknown>(
-  queueName: string,
-  jobName: string,
-  data: TData,
-  opts?: MockJobsOptions,
-): Promise<DispatchResult<TData, TResult>> => {
-  const mockId = `mock-${Date.now()}`;
-  
-  console.log(
-    `📥 [queueManager] Job "${jobName}" added to mock queue "${queueName}" (ID: ${mockId}).`,
-  );
-
-  // Trigger the background mock worker WITHOUT awating it, so we return instantly
-  processMockJob(queueName, data).catch(err => console.error(err));
-
-  // Instantly return the queued notification
-  return {
-    id: mockId,
-    queueName,
-    jobName,
-    mock: true,
-  };
+const defaultJobOptions: DefaultJobOptions = {
+  attempts: 3,
+  backoff: {
+    type: "exponential",
+    delay: 1000,
+  },
+  removeOnComplete: {
+    age: 3600, // Keep completed jobs for 1 hour (3600 seconds)
+    count: 1000, // Keep last 1000 completed jobs
+  },
+  removeOnFail: {
+    age: 86400, // Keep failed jobs for 24 hours
+    count: 1000, // Keep last 1000 failed jobs
+  },
 };
+
+class QueueManager {
+  private queues: Map<string, Queue> = new Map();
+
+  getQueue(name: QueueName): Queue {
+    if (!this.queues.has(name)) {
+      const queue = new Queue(name, {
+        connection: redisConfig,
+        defaultJobOptions,
+      });
+      this.queues.set(name, queue);
+    }
+    
+    return this.queues.get(name)!;
+  }
+
+  getDlq(): Queue {
+    return this.getQueue(QUEUE_NAMES.DLQ);
+  }
+}
+
+export const queueManager = new QueueManager();
+
+// Export getQueue for backward compatibility
+export const getQueue = (name: QueueName) => queueManager.getQueue(name);
+

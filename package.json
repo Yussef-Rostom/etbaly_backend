@@ -5,8 +5,8 @@
   "main": "dist/src/server.js",
   "imports": {
     "#src/models/schemas": "./dist/src/models/schemas/index.js",
-    "#src/jobs/mocks": "./dist/src/jobs/mocks/index.js",
     "#src/jobs/crons": "./dist/src/jobs/crons/index.js",
+    "#src/workers": "./dist/src/workers/index.js",
     "#src/*": {
       "default": "./dist/src/*.js"
     }
@@ -25,7 +25,6 @@
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^#src/models/schemas$": "<rootDir>/src/models/schemas/index.ts",
-      "^#src/jobs/mocks$": "<rootDir>/src/jobs/mocks/index.ts",
       "^#src/(.*)$": "<rootDir>/src/$1"
     },
     "testMatch": [
@@ -38,6 +37,7 @@
   "dependencies": {
     "axios": "^1.15.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.74.1",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -47,6 +47,7 @@
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
     "morgan": "^1.10.1",

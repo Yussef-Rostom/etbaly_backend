@@ -39,7 +39,7 @@ export class UserController {
       return sendError(res, 400, "Please upload an image file.");
     }
 
-    const avatarUrl = await UserService.uploadAvatar(
+    const { avatarUrl, fileId } = await UserService.uploadAvatar(
       getAuthUser(req)._id.toString(),
       req.file.buffer,
       req.file.mimetype,
@@ -47,6 +47,7 @@ export class UserController {
 
     sendSuccess(res, 200, "Avatar uploaded successfully.", {
       avatarUrl,
+      fileId,
     });
   });
 }
