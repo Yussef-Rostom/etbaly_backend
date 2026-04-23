@@ -12,9 +12,19 @@ interface SettingDefinition {
  */
 const DEFAULT_SETTINGS: SettingDefinition[] = [
   {
-    key: "LIGHTNING_URL",
+    key: "lightningAiTextToImageUrl",
     value: "",
-    description: "Lightning AI service endpoint URL for AI-powered content generation",
+    description: "Lightning AI service endpoint URL for text-to-image generation",
+  },
+  {
+    key: "lightningAiImageTo3dUrl",
+    value: "",
+    description: "Lightning AI service endpoint URL for image-to-3D conversion",
+  },
+  {
+    key: "PRINTING_HOURLY_RATE",
+    value: "10",
+    description: "Hourly rate for 3D printing time cost calculation (in currency units per hour)",
   },
 ];
 

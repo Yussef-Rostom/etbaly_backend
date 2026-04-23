@@ -4,19 +4,19 @@ import axios from "axios";
 import { TextToImageJobData } from "../types";
 import { uploadImage } from "#src/utils/drive";
 import { AiAdminService } from "#src/modules/ai/services/aiAdminService";
+import fs from "fs";
+import path from "path";
 
 export class TextToImageWorkerService {
   /**
    * Calls the Lightning AI text-to-image service to convert text prompt to image
    */
-  private static async callLightningTextToImageService(
+  private static async callLightningService(
     prompt: string,
     lightningUrl: string,
     correlationId: string
   ): Promise<Buffer> {
     try {
-      console.log(`[${correlationId}] 🔗 Calling Lightning AI text-to-image at: ${lightningUrl}/generate`);
-
       // Send POST request to Lightning AI text-to-image service
       const response = await axios.post(
         `${lightningUrl}/generate-image`,
@@ -25,38 +25,28 @@ export class TextToImageWorkerService {
           headers: {
             'Content-Type': 'application/json',
           },
-          timeout: 180000, // 3 minute timeout
+          timeout: 300000, // 5 minute timeout
           maxContentLength: 50 * 1024 * 1024, // 50MB max response
           maxBodyLength: 50 * 1024 * 1024, // 50MB max request
         }
       );
 
-      console.log(`[${correlationId}] ✅ Lightning AI text-to-image responded with ${response.status}`);
-
       // Handle base64-encoded response
-      if (typeof response.data === 'object' && response.data !== null) {
-        // Check for base64 data in common response fields
-        let base64Data: string | undefined;
+      if (typeof response.data === 'object' && response.data !== null && response.data.image_base64) {
+        const base64Data = response.data.image_base64;
         
-        if (response.data.image_base64) {
-          base64Data = response.data.image_base64;
-        } else if (response.data.image) {
-          base64Data = response.data.image;
-        } else if (response.data.data) {
-          base64Data = response.data.data;
-        } else if (response.data.base64) {
-          base64Data = response.data.base64;
-        }
-
-        if (base64Data && typeof base64Data === 'string') {
+        if (typeof base64Data === 'string') {
           // Strip data URL prefix if present (e.g., "data:image/png;base64,")
           const base64String = base64Data.replace(/^data:image\/\w+;base64,/, '');
-          console.log(`[${correlationId}] 🔄 Converting base64 response to buffer`);
           return Buffer.from(base64String, 'base64');
         }
         
-        // If object but no base64 field found, throw error
-        throw new Error('Lightning AI response is JSON but missing expected base64 image field (image_base64, image, data, or base64)');
+        throw new Error('Lightning AI response image_base64 field is not a string');
+      }
+      
+      // If no image_base64 field found, throw error
+      if (typeof response.data === 'object' && response.data !== null) {
+        throw new Error('Lightning AI response is missing image_base64 field');
       }
 
       // Fallback: treat response as binary data (Buffer or ArrayBuffer)
@@ -93,53 +83,75 @@ export class TextToImageWorkerService {
   }
 
   /**
-   * Main TEXT_TO_IMAGE Worker Implementation
-   * Processes text-to-image jobs and returns the generated image
+   * Main TEXT_TO_IMAGE Worker Implementation with automatic fallback to mock on failure
    */
   static async process(job: Job<TextToImageJobData>) {
-    const { prompt, designName, ownerId, correlationId } = job.data;
+    const { prompt, designName, correlationId } = job.data;
     
     try {
-      // 1. Get text-to-image URL from settings (33% progress)
-      console.log(`[${correlationId}] 📋 Retrieving text-to-image Lightning AI URL...`);
-      const textToImageUrl = await AiAdminService.getTextToImageUrl();
+      await job.updateProgress(20);
       
-      if (!textToImageUrl) {
-        throw new Error("Text-to-image Lightning AI URL is not configured");
-      }
-      
-      await job.updateProgress(33);
-
-      // 2. Call Lightning AI text-to-image service (66% progress)
-      console.log(`[${correlationId}] 🎨 Generating image from text prompt...`);
-      const imageBuffer = await this.callLightningTextToImageService(
-        prompt,
-        textToImageUrl,
-        correlationId
-      );
-      
-      await job.updateProgress(66);
-
-      // 3. Upload generated image to Google Drive (100% progress)
-      console.log(`[${correlationId}] ☁️  Uploading generated image to Drive...`);
-      const { fileId, publicUrl } = await uploadImage(
-        imageBuffer,
-        `${designName}-generated.png`,
-        "image/png"
-      );
-      
-      await job.updateProgress(100);
-
-      console.log(`[${correlationId}] ✅ Text-to-image process complete. Image available at ${publicUrl}`);
-
-      return {
-        success: true,
-        imageFileId: fileId,
-        imagePublicUrl: publicUrl,
-      };
+      // Delegate to resilient processor that handles the real -> mock logic
+      return this.processWithFallback(job, prompt, designName);
     } catch (error: any) {
-      console.error(`[${correlationId}] ❌ Text-to-image worker failed:`, error.message);
+      console.error(`[${correlationId}] ❌ Text-to-image worker critical failure:`, error.message);
       throw error; // Re-throw to allow queue retries
     }
+  }
+
+  /**
+   * Resilient processor that attempts real AI generation and falls back to local mock image on any failure.
+   */
+  private static async processWithFallback(
+    job: Job<TextToImageJobData>,
+    prompt: string,
+    designName: string
+  ) {
+    const { correlationId } = job.data;
+    let imageBuffer: Buffer | null = null;
+    let isMock = false;
+
+    // 1. Try to call the real Lightning AI service (60% progress)
+    try {
+      const lightningUrl = await AiAdminService.getTextToImageUrl();
+      if (!lightningUrl) throw new Error("Text-to-image Lightning URL not configured.");
+
+      imageBuffer = await this.callLightningService(
+        prompt,
+        lightningUrl,
+        correlationId
+      );
+      await job.updateProgress(60);
+    } catch (error: any) {
+      console.error(`[${correlationId}] ⚠️ Lightning AI failed, using local mock: ${error.message}`);
+      
+      // 2. Fallback: Use a local mock image file
+      try {
+        const mockPath = path.join(process.cwd(), "../tmp/image/imageMock.png");
+        imageBuffer = fs.readFileSync(mockPath);
+        isMock = true;
+        await job.updateProgress(60);
+      } catch (fsError: any) {
+        throw new Error(`Critical: Failed to read mock image file: ${fsError.message}`);
+      }
+    }
+
+    // 3. Upload Result to Drive (80% progress)
+    const finalDesignName = isMock ? `${designName} (Mock)` : designName;
+    const { fileId, publicUrl } = await uploadImage(
+      imageBuffer!,
+      `${finalDesignName}-generated.png`,
+      "image/png"
+    );
+    await job.updateProgress(80);
+
+    await job.updateProgress(100);
+
+    return {
+      success: true,
+      imageFileId: fileId,
+      imagePublicUrl: publicUrl,
+      isMock
+    };
   }
 }

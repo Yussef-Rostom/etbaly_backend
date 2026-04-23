@@ -46,7 +46,7 @@ PRESETS = {
     "draft": {
         "quality": "0.30 mm SUPERDRAFT (0.4 mm nozzle) @ANKER",
         "infill": "10%",
-        "support": "none",
+        "support": "normal",
         "perimeters": "2",
     },
 }
@@ -74,12 +74,22 @@ def find_prusa_slicer() -> str:
         ]
     else:  # Linux
         candidates = [
+            "/opt/PrusaSlicer/prusa-slicer",  # AppImage location
             "/usr/bin/prusa-slicer",
             "/usr/local/bin/prusa-slicer",
+            "/snap/bin/prusa-slicer",  # Snap installation
             os.path.expanduser("~/Applications/PrusaSlicer/prusa-slicer"),
+            os.path.expanduser("~/Downloads/PrusaSlicer*.AppImage"),  # Downloaded AppImage
         ]
 
     for path in candidates:
+        # Handle wildcards for AppImage
+        if '*' in path:
+            import glob
+            matches = glob.glob(path)
+            if matches:
+                path = matches[0]
+        
         if os.path.isfile(path):
             return path
 
@@ -88,10 +98,21 @@ def find_prusa_slicer() -> str:
     found = shutil.which("prusa-slicer") or shutil.which("PrusaSlicer")
     if found:
         return found
+    
+    # Check for Flatpak installation
+    flatpak_check = subprocess.run(
+        ["flatpak", "list", "--app"],
+        capture_output=True,
+        text=True
+    )
+    if "PrusaSlicer" in flatpak_check.stdout or "prusa3d" in flatpak_check.stdout:
+        # Return a wrapper command for Flatpak
+        return "flatpak run com.prusa3d.PrusaSlicer"
 
     raise FileNotFoundError(
         "PrusaSlicer executable not found. "
-        "Please set the path manually in find_prusa_slicer()."
+        "Please install PrusaSlicer or set the path manually in find_prusa_slicer().\n"
+        "Download from: https://github.com/prusa3d/PrusaSlicer/releases"
     )
 
 
@@ -131,9 +152,17 @@ def slice_stl(
 
     slicer = find_prusa_slicer()
 
+    # Check if slicer is a Flatpak command
+    is_flatpak = slicer.startswith("flatpak run")
+    
     # Build the command
-    cmd = [
-        slicer,
+    if is_flatpak:
+        # For Flatpak, we need to split the command
+        cmd = slicer.split()
+    else:
+        cmd = [slicer]
+    
+    cmd += [
         "--export-gcode",          # export G-code mode
         "--output", output_path,   # output file
     ]
@@ -181,8 +210,23 @@ def slice_stl(
         )
 
     if not os.path.isfile(output_path):
+        # Check if PrusaSlicer is configured
+        config_dir = os.path.expanduser('~/.var/app/com.prusa3d.PrusaSlicer/config/PrusaSlicer')
+        printer_dir = os.path.join(config_dir, 'printer')
+        
+        if os.path.exists(printer_dir):
+            printer_profiles = [f for f in os.listdir(printer_dir) if f.endswith('.ini')]
+            if len(printer_profiles) == 0:
+                raise RuntimeError(
+                    f"PrusaSlicer is not configured. No printer profiles found.\n"
+                    f"Please run 'flatpak run com.prusa3d.PrusaSlicer' and complete the configuration wizard.\n"
+                    f"See tools/SETUP_INSTRUCTIONS.md for detailed instructions."
+                )
+        
         raise RuntimeError(
-            f"PrusaSlicer finished but G-code file not found at: {output_path}"
+            f"PrusaSlicer finished but G-code file not found at: {output_path}\n"
+            f"This usually means PrusaSlicer needs to be configured.\n"
+            f"Run 'flatpak run com.prusa3d.PrusaSlicer' to set up printer profiles."
         )
 
     print(f"\n✅  G-code written to: {output_path}")

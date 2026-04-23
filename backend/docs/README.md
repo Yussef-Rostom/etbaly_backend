@@ -17,7 +17,8 @@
 - [Designs](./designs.md) — Authenticated design access and admin design CRUD
 - [Cart](./cart.md) — Cart management and checkout
 - [Orders](./orders.md) — Order history, order tracking, and admin order management
-- [Manufacturing](./manufacturing.md) — Job dispatch for slicing and printing
+- [Slicing](./slicing.md) — Automated slicing job management (STL to G-code conversion) with weight, dimensions, print time, and price calculation
+- [Printing](./printing.md) — Manual printing job workflow with approval and execution
 - [AI Generation](./ai.md) — Lightning AI service URL management for AI-powered content generation
 - [Files](./files.md) — Google Drive file proxy for CORS/Auth bypass
 
@@ -328,7 +329,46 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`userId`** — ObjectId ref → User
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
-### ManufacturingJob
+### SlicingJob
+
+- **`_id`** — MongoDB ObjectId
+- **`jobNumber`** — Unique string within SlicingJob collection
+- **`designId`** — ObjectId ref → Design (required)
+- **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
+- **`orderId`** — Optional ObjectId ref → Order
+- **`operatorId`** — Optional ObjectId ref → User
+- **`status`** — `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Queued"`)
+- **`stlFileUrl`** — Optional string (URL to input STL file)
+- **`gcodeUrl`** — Optional string (URL to generated G-code file)
+- **`fileName`** — Optional string
+- **`weight`** — Optional number (weight in grams, required when status is "Completed")
+- **`dimensions`** — Optional object (dimensions in mm, required when status is "Completed")
+  - **`width`** — number (width in mm)
+  - **`height`** — number (height in mm)
+  - **`depth`** — number (depth in mm)
+- **`printTime`** — Optional number (estimated print time in minutes, required when status is "Completed")
+- **`calculatedPrice`** — Optional number (calculated price based on weight and time, required when status is "Completed")
+- **`startedAt`** / **`finishedAt`** — Optional Dates
+- **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
+
+### PrintingJob
+
+- **`_id`** — MongoDB ObjectId
+- **`jobNumber`** — Unique string within PrintingJob collection
+- **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
+- **`productId`** — Optional ObjectId ref → Product
+- **`orderId`** — Optional ObjectId ref → Order
+- **`operatorId`** — Optional ObjectId ref → User
+- **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
+- **`gcodeUrl`** — Optional string (URL to G-code file)
+- **`machineId`** — Optional string
+- **`fileName`** — Optional string
+- **`startedAt`** / **`finishedAt`** — Optional Dates
+- **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
+
+### ManufacturingJob (Legacy)
+
+> **Note:** This model is deprecated. Use SlicingJob and PrintingJob instead.
 
 - **`_id`** — MongoDB ObjectId
 - **`jobNumber`** — Unique string

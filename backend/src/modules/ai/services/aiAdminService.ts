@@ -3,7 +3,6 @@ import { redisCache } from "#src/utils/redisCache";
 import { AppError } from "#src/utils/AppError";
 
 export class AiAdminService {
-  private static readonly LIGHTNING_URL_KEY = "lightningAiUrl";
   private static readonly TEXT_TO_IMAGE_URL_KEY = "lightningAiTextToImageUrl";
   private static readonly TEXT_TO_IMAGE_CACHE_KEY = "settings:lightning_text_to_image_url";
   private static readonly IMAGE_TO_3D_URL_KEY = "lightningAiImageTo3dUrl";
@@ -95,7 +94,7 @@ export class AiAdminService {
 
   /**
    * Get the image-to-3D Lightning AI service URL with Redis caching.
-   * Priority: Redis Cache -> Database (new key) -> Database (legacy key)
+   * Priority: Redis Cache -> Database
    * Throws error if URL is not configured.
    */
   static async getImageTo3dUrl(): Promise<string> {
@@ -107,8 +106,8 @@ export class AiAdminService {
         return cachedUrl;
       }
 
-      // 2. Try database with new key
-      let setting = await Settings.findOne({ key: this.IMAGE_TO_3D_URL_KEY });
+      // 2. Try database
+      const setting = await Settings.findOne({ key: this.IMAGE_TO_3D_URL_KEY });
       
       if (setting && setting.value) {
         // Cache in Redis for future requests
@@ -116,18 +115,8 @@ export class AiAdminService {
         console.log("✅ Image-to-3D URL fetched from database and cached");
         return setting.value;
       }
-
-      // 3. Fallback to legacy key for backward compatibility
-      setting = await Settings.findOne({ key: this.LIGHTNING_URL_KEY });
       
-      if (setting && setting.value) {
-        // Cache in Redis for future requests
-        await redisCache.set(this.IMAGE_TO_3D_CACHE_KEY, setting.value, this.CACHE_TTL);
-        console.log("✅ Image-to-3D URL fetched from legacy key and cached");
-        return setting.value;
-      }
-      
-      // 4. No URL configured - throw error
+      // 3. No URL configured - throw error
       throw new AppError(
         "Image-to-3D Lightning AI URL is not configured. Please set it via the admin API endpoint: POST /api/v1/admin/ai/set-image-to-3d-url",
         500

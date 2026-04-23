@@ -246,7 +246,9 @@ Returns a paginated list of all orders in the system, sorted newest first. Suppo
 
 - **Access:** Operator, Admin
 
-Assigns a specific order item to a 3D printer. Creates a `ManufacturingJob` document and updates the order item's status to `"Printing"`.
+Assigns a specific order item to a 3D printer. Creates a `PrintingJob` document and updates the order item's status to `"Printing"`.
+
+> **Note:** This endpoint uses the legacy workflow. For new implementations, use the [Slicing](./slicing.md) and [Printing](./printing.md) modules directly.
 
 **Path Parameters**
 

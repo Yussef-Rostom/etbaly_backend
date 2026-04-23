@@ -21,4 +21,6 @@ export const env = {
   REDIS_HOST: process.env.REDIS_HOST || "localhost",
   REDIS_PORT: parseInt(process.env.REDIS_PORT || "6379", 10),
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || "etbaly_redis_pass",
+  WORKER_SERVER_HOST: process.env.WORKER_SERVER_HOST || "localhost",
+  WORKER_SERVER_PORT: parseInt(process.env.WORKER_SERVER_PORT || "8080", 10),
 } as const;

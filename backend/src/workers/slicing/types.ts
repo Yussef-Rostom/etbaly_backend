@@ -5,4 +5,6 @@ export interface SlicingJobData extends BaseJobData {
   modelFileKey: string;
   designId: string;
   material: string;
+  preset?: 'heavy' | 'normal' | 'draft';
+  scale?: number;
 }

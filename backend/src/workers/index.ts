@@ -1,8 +1,7 @@
 // src/workers/index.ts
-import { startAiWorker } from "./ai";
+import { startAiWorker } from "./imageTo3d";
 import { startTextToImageWorker } from "./textToImage";
 import { startSlicingWorker } from "./slicing";
-import { startPrintingWorker } from "./printing";
 import { shutdownAllWorkers } from "./registry";
 
 export const initializeWorkers = () => {
@@ -12,7 +11,7 @@ export const initializeWorkers = () => {
   startAiWorker();
   startTextToImageWorker();
   startSlicingWorker();
-  startPrintingWorker();
+  // Note: Printing is now manual via Admin API - no automated worker
 
   console.log("✅ All workers initialized successfully!");
 };

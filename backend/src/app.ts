@@ -8,7 +8,8 @@ import userRoutes from "#src/modules/user/routes/userRoutes";
 import userAdminRoutes from "#src/modules/user/routes/userAdminRoutes";
 import productRoutes from "#src/modules/product/routes/productRoutes";
 import productAdminRoutes from "#src/modules/product/routes/productAdminRoutes";
-import manufacturingRoutes from "#src/modules/manufacturing/routes/manufacturingAdminRoutes";
+import slicingRoutes from "#src/modules/slicing/routes/slicingRoutes";
+import printingRoutes from "#src/modules/printing/routes/printingRoutes";
 import cartRoutes from "#src/modules/cart/routes/cartRoutes";
 import orderRoutes from "#src/modules/order/routes/orderRoutes";
 import orderAdminRoutes from "#src/modules/order/routes/orderAdminRoutes";
@@ -73,11 +74,13 @@ app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/designs", designRoutes);
 app.use("/api/v1/ai", aiGenerationRoutes);
 app.use("/api/v1/files", fileRoutes);
+app.use("/api/v1/slicing", slicingRoutes);
+app.use("/api/v1/printing", printingRoutes);
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
 app.use("/api/v1/admin/users", userAdminRoutes);
 app.use("/api/v1/admin/products", productAdminRoutes);
-app.use("/api/v1/admin/manufacturing", manufacturingRoutes);
+app.use("/api/v1/admin/printing", printingRoutes);
 app.use("/api/v1/admin/designs", designAdminRoutes);
 app.use("/api/v1/admin/orders", orderAdminRoutes);
 app.use("/api/v1/admin/ai", aiAdminRoutes);
