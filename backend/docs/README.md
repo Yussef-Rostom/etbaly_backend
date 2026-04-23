@@ -10,7 +10,7 @@
 
 ## Table of Contents
 
-- [Deployment](./deployment.md) — Deployment guide for local, Docker, and Vercel environments
+- [Deployment](./deployment.md) — Deployment guide for local and Docker environments
 - [Auth](./auth.md) — Registration, login, OTP, Google OAuth, password reset, token refresh
 - [Users](./users.md) — Profile management (client) and user administration (admin)
 - [Products](./products.md) — Public product browsing and admin product CRUD
