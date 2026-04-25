@@ -2,7 +2,7 @@
 import { BaseJobData } from "../registry";
 
 export interface SlicingJobData extends BaseJobData {
-  modelFileKey: string;
+  stlUrl: string;
   designId: string;
   material: string;
   preset?: 'heavy' | 'normal' | 'draft';

@@ -1,18 +1,17 @@
 import { Schema } from "mongoose";
 import {
-  ICustomizationParams,
-  customizationParamsSchema,
-} from "#src/models/schemas/CustomizationParamsSchema";
+  IPrintingProperties,
+  printingPropertiesSchema,
+} from "#src/models/schemas/PrintingPropertiesSchema";
 
 export interface IOrderItem {
   _id?: Schema.Types.ObjectId;
   itemType: "Product" | "Design";
   quantity: number;
-  customization?: ICustomizationParams;
+  printingProperties?: IPrintingProperties;
   status: "Queued" | "Printing" | "Ready";
   price: number;
   itemRefId: Schema.Types.ObjectId;
-  materialId?: Schema.Types.ObjectId;
 }
 
 export const orderItemSchema = new Schema<IOrderItem>(
@@ -28,8 +27,8 @@ export const orderItemSchema = new Schema<IOrderItem>(
       min: [1, "Quantity must be at least 1"],
       default: 1,
     },
-    customization: {
-      type: customizationParamsSchema,
+    printingProperties: {
+      type: printingPropertiesSchema,
     },
     status: {
       type: String,
@@ -44,12 +43,8 @@ export const orderItemSchema = new Schema<IOrderItem>(
     itemRefId: {
       type: Schema.Types.ObjectId,
       required: true,
-      refPath: "items.itemType", // Dynamic reference based on itemType
-    },
-    materialId: {
-      type: Schema.Types.ObjectId,
-      ref: "Material",
+      refPath: "items.itemType",
     },
   },
-  { _id: true }, // Order Items typically need their own _id to be referenced by Manufacturing Jobs easily
+  { _id: true },
 );

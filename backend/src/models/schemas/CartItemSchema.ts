@@ -1,8 +1,8 @@
 import { Schema, Types } from "mongoose";
 import {
-  ICustomizationParams,
-  customizationParamsSchema,
-} from "#src/models/schemas/CustomizationParamsSchema";
+  IPrintingProperties,
+  printingPropertiesSchema,
+} from "#src/models/schemas/PrintingPropertiesSchema";
 
 export interface ICartItem {
   _id: Types.ObjectId;
@@ -10,8 +10,7 @@ export interface ICartItem {
   itemRefId: Types.ObjectId;
   quantity: number;
   unitPrice: number;
-  customization?: ICustomizationParams;
-  materialId?: Types.ObjectId;
+  printingProperties?: IPrintingProperties;
 }
 
 export const cartItemSchema = new Schema<ICartItem>(
@@ -37,12 +36,8 @@ export const cartItemSchema = new Schema<ICartItem>(
       required: true,
       min: [0, "Unit price cannot be negative"],
     },
-    customization: {
-      type: customizationParamsSchema,
-    },
-    materialId: {
-      type: Schema.Types.ObjectId,
-      ref: "Material",
+    printingProperties: {
+      type: printingPropertiesSchema,
     },
   },
   { _id: true },

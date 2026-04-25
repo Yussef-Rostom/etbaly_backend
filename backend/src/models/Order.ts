@@ -11,7 +11,6 @@ import {
 } from "#src/models/schemas";
 
 export interface IOrder extends Document {
-  orderNumber: string;
   status: "Pending" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
   items: IOrderItem[];
   shippingAddressSnapshot: IAddress;
@@ -24,12 +23,6 @@ export interface IOrder extends Document {
 
 const orderSchema = new Schema<IOrder>(
   {
-    orderNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
     status: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],

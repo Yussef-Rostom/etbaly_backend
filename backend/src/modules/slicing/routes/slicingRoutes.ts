@@ -15,6 +15,6 @@ router
 
 router
   .route("/status/:jobId")
-  .get(SlicingController.getSlicingJobStatus);
+  .get(validate(getSlicingJobStatusSchema, "params"), SlicingController.getSlicingJobStatus);
 
 export default router;

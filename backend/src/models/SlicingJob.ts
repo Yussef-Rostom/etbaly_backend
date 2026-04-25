@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface ISlicingJob extends Document {
-  jobNumber: string;
   designId: mongoose.Types.ObjectId;
   targetOrderItemId?: mongoose.Types.ObjectId;
   status: "Queued" | "Processing" | "Completed" | "Failed";
@@ -26,12 +25,6 @@ export interface ISlicingJob extends Document {
 
 const slicingJobSchema = new Schema<ISlicingJob>(
   {
-    jobNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
     targetOrderItemId: {
       type: Schema.Types.ObjectId,
       required: false,

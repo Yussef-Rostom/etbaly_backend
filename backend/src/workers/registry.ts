@@ -4,7 +4,7 @@ import { redisConfig } from "#src/configs/redisConfig";
 import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
 
 export interface BaseJobData {
-  correlationId: string;
+  jobId: string;
   ownerId: string;
 }
 
@@ -16,7 +16,7 @@ export interface AiJobData extends BaseJobData {
 }
 
 export interface SlicingJobData extends BaseJobData {
-  modelFileKey: string;
+  stlUrl: string;
   designId: string;
   material: string;
   preset?: 'heavy' | 'normal' | 'draft';
@@ -24,7 +24,7 @@ export interface SlicingJobData extends BaseJobData {
 }
 
 export interface PrintingJobData extends BaseJobData {
-  gcodeFileKey: string;
+  gcodeUrl: string;
   designId: string;
 }
 
@@ -46,24 +46,24 @@ export function registerWorker<T>(config: WorkerConfig<T>): Worker {
   const worker = new Worker<T>(
     config.queueName,
     async (job) => {
-      const corrId = (job.data as unknown as BaseJobData).correlationId || "no-corr-id";
-      console.log(`[${corrId}] ⚡ Starting job ${job.id} in ${config.queueName}`);
+      const jobId = (job.data as unknown as BaseJobData).jobId || "no-job-id";
+      console.log(`[${jobId}] ⚡ Starting job ${job.id} in ${config.queueName}`);
 
       try {
         const result = await config.handler(job);
-        console.log(`[${corrId}] ✅ Job ${job.id} completed successfully`);
+        console.log(`[${jobId}] ✅ Job ${job.id} completed successfully`);
         return result;
       } catch (error: any) {
-        console.error(`[${corrId}] ❌ Job ${job.id} failed:`, error.message);
+        console.error(`[${jobId}] ❌ Job ${job.id} failed:`, error.message);
         
         // If max attempts reached, we could manually move this to DLQ, 
         // but BullMQ handles failed jobs. For explicit DLQ routing, check attempts:
         if (job.attemptsMade >= (job.opts.attempts || 3) - 1) {
-          console.error(`[${corrId}] ☠️ Job ${job.id} exhausted retries. Routing to DLQ.`);
+          console.error(`[${jobId}] ☠️ Job ${job.id} exhausted retries. Routing to DLQ.`);
           await queueManager.getDlq().add(`${config.queueName}-failed`, {
             originalJob: job.data,
             error: error.message,
-            correlationId: corrId,
+            jobId: jobId,
           });
         }
         

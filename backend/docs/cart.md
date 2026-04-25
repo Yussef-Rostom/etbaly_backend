@@ -30,13 +30,12 @@ Returns the authenticated user's current cart, including all items and the compu
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
           "quantity": 2,
           "unitPrice": 29.99,
-          "customization": {
+          "printingProperties": {
+            "material": "PLA",
             "color": "#FF5733",
-            "infillPercentage": 20,
-            "layerHeight": 0.2,
-            "scale": 1
-          },
-          "materialId": "64f1a2b3c4d5e6f7a8b9c0d6"
+            "scale": 1,
+            "preset": "normal",
+
         }
       ],
       "pricingSummary": {
@@ -79,17 +78,15 @@ Adds an item to the cart. If the item already exists with the same configuration
   - *Validation:* Integer, min 1
   - *Description:* Number of units to add
 
-- **`materialId`** (*string*, Required)
-  - *Validation:* Must be a strict 24-character hex MongoDB ObjectId (Regex validated: `/^[0-9a-fA-F]{24}$/`)
-  - *Description:* MongoDB ObjectId of the Material to use for printing. **Required for all item types** (`"Product"` and `"Design"`).
-
-- **`customization`** (*object*, Optional)
-  - *Description:* 3D printing customization parameters
-  - **`color`** (*string*, Optional) — Color value (e.g. hex code or name)
-  - **`infillPercentage`** (*number*, Optional) — Fill density percentage
-  - **`layerHeight`** (*number*, Optional) — Layer height in mm
-  - **`scale`** (*number*, Optional) — Scale multiplier
-  - **`customFields`** (*object*, Optional) — Arbitrary key-value pairs for additional customization
+- **`printingProperties`** (*object*, Required)
+  - *Description:* 3D printing configuration for this item
+  - **`material`** (*string*, Required) — Material type: `"PLA"` | `"ABS"` | `"PETG"` | `"TPU"` | `"Resin"`
+  - **`color`** (*string*, Optional) — Color value (e.g. hex code `"#FF5733"`)
+  - **`scale`** (*number*, Optional) — Scale multiplier (0.1–10, default: 1)
+  - **`preset`** (*string*, Optional) — Slicing quality preset: `"heavy"` | `"normal"` | `"draft"`
+  - **`customFields`** (*array*, Optional) — List of custom key-value pairs
+    - **`key`** (*string*, Required) — Field name
+    - **`value`** (*string*, Required) — Field value
 
 **Response 200 — OK**
 ```json
@@ -111,7 +108,7 @@ Adds an item to the cart. If the item already exists with the same configuration
 
 **Response 400 — Missing Material**
 ```json
-{ "success": false, "message": "Material not found or not currently active." }
+{ "success": false, "message": "Material type \"PLA\" not found or not currently active." }
 ```
 
 **Response 404 — Item Not Found**
@@ -203,9 +200,12 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
 
 **Request Body (JSON)**
 
-- **`shippingAddressId`** (*string*, Required)
-  - *Validation:* Must be a strict 24-character hex MongoDB ObjectId (Regex validated: `/^[0-9a-fA-F]{24}$/`)
-  - *Description:* The ID of a saved address from the user's profile to use as the shipping address
+- **`shippingAddress`** (*object*, Required)
+  - *Description:* The shipping address for this order
+  - **`street`** (*string*, Required) — Street address
+  - **`city`** (*string*, Required) — City
+  - **`country`** (*string*, Required) — Country
+  - **`zip`** (*string*, Required) — ZIP / postal code
 
 - **`paymentMethod`** (*string*, Required)
   - *Validation:* Must be one of `"Card"`, `"Wallet"`, `"COD"`
@@ -219,7 +219,6 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
   "data": {
     "order": {
       "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
-      "orderNumber": "ORD-20260324-0001",
       "status": "Pending",
       "items": [
         {
@@ -268,9 +267,4 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
   "message": "Validation failed",
   "data": { "errors": [{ "field": "paymentMethod", "message": "Invalid enum value. Expected 'Card' | 'Wallet' | 'COD'" }] }
 }
-```
-
-**Response 404 — Address Not Found**
-```json
-{ "success": false, "message": "Shipping address not found." }
 ```

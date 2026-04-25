@@ -4,16 +4,16 @@ export const addCartItemSchema = z.object({
   itemType: z.enum(["Product", "Design"]),
   itemRefId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
   quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  materialId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
-  customization: z
+  printingProperties: z
     .object({
+      material: z.string({ required_error: "material is required" }),
       color: z.string().optional(),
-      infillPercentage: z.number().optional(),
-      layerHeight: z.number().optional(),
-      scale: z.number().optional(),
-      customFields: z.record(z.string(), z.any()).optional(),
-    })
-    .optional(),
+      scale: z.number().min(0.1).max(10).optional(),
+      preset: z.enum(["heavy", "normal", "draft"]).optional(),
+      customFields: z
+        .array(z.object({ key: z.string(), value: z.string() }))
+        .optional(),
+    }),
 });
 
 export const updateCartItemSchema = z.object({
@@ -21,7 +21,12 @@ export const updateCartItemSchema = z.object({
 });
 
 export const checkoutSchema = z.object({
-  shippingAddressId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
+  shippingAddress: z.object({
+    street: z.string().trim().min(1, "Street is required"),
+    city: z.string().trim().min(1, "City is required"),
+    country: z.string().trim().min(1, "Country is required"),
+    zip: z.string().trim().min(1, "ZIP code is required"),
+  }),
   paymentMethod: z.enum(["Card", "Wallet", "COD"]),
 });
 

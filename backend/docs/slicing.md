@@ -17,16 +17,17 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 - Real-time status tracking through SlicingJob model
 - Queue management with Redis-backed BullMQ
 - Automatic retry logic and failure tracking
+- Automatic fallback to mock simulation if worker server is unavailable
 
 **Workflow:**
 ```
-1. User calls POST /execute
+1. User calls POST /execute with designId
 2. System creates SlicingJob (status: "Queued")
 3. Job dispatched to SLICING queue
 4. BullMQ worker picks up job
 5. Worker updates status to "Processing"
-6. Worker performs slicing operation
-7. Worker updates status to "Completed" (with gcodeUrl) or "Failed"
+6. Worker downloads STL from Google Drive and calls external slicing API
+7. Worker updates status to "Completed" (with gcodeUrl, weight, dimensions, printTime, calculatedPrice) or "Failed"
 ```
 
 ---
@@ -51,17 +52,15 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   - *Default:* "PLA"
 
 - **`preset`** (*string*, Optional)
-  - *Validation:* One of: "heavy", "normal", "draft"
+  - *Validation:* One of: `"heavy"`, `"normal"`, `"draft"`
   - *Description:* Slicing quality preset
     - `heavy`: High quality/strength (0.1mm layer height, 40% infill, 4 perimeters)
     - `normal`: Balanced quality (0.2mm layer height, 20% infill, 3 perimeters)
     - `draft`: Fast/light (0.3mm layer height, 10% infill, 2 perimeters)
-  - *Default:* "normal"
 
 - **`scale`** (*number*, Optional)
   - *Validation:* Positive number
   - *Description:* Scale factor for the model (e.g., 100 = 100%, 50 = 50% size)
-  - *Default:* 100
 
 **Response 200 — OK**
 ```json
@@ -70,7 +69,6 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   "message": "Slicing job for design My Awesome Model dispatched successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "SLICE-1705320000000-abc123",
     "status": "Queued",
     "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
     "designName": "My Awesome Model"
@@ -107,14 +105,6 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
 }
 ```
 
-**Response 403 — Forbidden**
-```json
-{ 
-  "success": false, 
-  "message": "You do not have permission to perform this action." 
-}
-```
-
 ---
 
 ### `GET /api/v1/slicing/status/:jobId`
@@ -136,9 +126,8 @@ Retrieves the current status and details of a slicing job.
   "message": "SlicingJob status retrieved successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "SLICE-1705320000000-abc123",
     "status": "Completed",
-    "stlFileUrl": "https://storage.example.com/models/model_123.stl",
+    "stlFileUrl": "https://drive.google.com/uc?id=abc123",
     "gcodeUrl": "https://storage.example.com/gcode/model_123.gcode",
     "fileName": "model_123.stl",
     "weight": 45.5,
@@ -165,32 +154,11 @@ Retrieves the current status and details of a slicing job.
 }
 ```
 
-**Response 400 — Invalid ID**
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "data": {
-    "errors": [
-      { "field": "jobId", "message": "jobId must be a valid MongoDB ObjectId" }
-    ]
-  }
-}
-```
-
 **Response 401 — Unauthenticated**
 ```json
 { 
   "success": false, 
   "message": "You are not logged in. Please log in to get access." 
-}
-```
-
-**Response 403 — Forbidden**
-```json
-{ 
-  "success": false, 
-  "message": "You do not have permission to perform this action." 
 }
 ```
 
@@ -204,27 +172,25 @@ Represents an automated slicing operation that converts STL files to G-code.
 
 **Fields:**
 
-- **`_id`** — MongoDB ObjectId
-- **`jobNumber`** — Unique string within SlicingJob collection (e.g., "SLICE-2024-001")
+- **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
 - **`designId`** — ObjectId ref → Design (required)
 - **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
-- **`status`** — `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Queued"`)
-- **`stlFileUrl`** — Optional string (URL to input STL file)
-- **`gcodeUrl`** — Optional string (URL to generated G-code file, set on completion)
-- **`fileName`** — Optional string (original file name)
-- **`weight`** — Optional number (weight in grams, required when status is "Completed")
-- **`dimensions`** — Optional object (dimensions in mm, required when status is "Completed")
-  - **`width`** — number (width in mm)
-  - **`height`** — number (height in mm)
-  - **`depth`** — number (depth in mm)
-- **`printTime`** — Optional number (estimated print time in minutes, required when status is "Completed")
-- **`calculatedPrice`** — Optional number (calculated price based on weight and time, required when status is "Completed")
-- **`startedAt`** — Optional Date (timestamp when processing started, set by worker)
-- **`finishedAt`** — Optional Date (timestamp when processing completed or failed, set by worker)
 - **`orderId`** — Optional ObjectId ref → Order
 - **`operatorId`** — Optional ObjectId ref → User (user who initiated the job)
-- **`createdAt`** — Date (auto-managed by timestamps)
-- **`updatedAt`** — Date (auto-managed by timestamps)
+- **`status`** — `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Queued"`)
+- **`stlFileUrl`** — Optional string (URL to input STL file from Google Drive)
+- **`gcodeUrl`** — Optional string (URL to generated G-code file, set on completion)
+- **`fileName`** — Optional string (original file name)
+- **`weight`** — Optional number (weight in grams, set on completion)
+- **`dimensions`** — Optional object (dimensions in mm, set on completion)
+  - **`width`** — number
+  - **`height`** — number
+  - **`depth`** — number
+- **`printTime`** — Optional number (estimated print time in minutes, set on completion)
+- **`calculatedPrice`** — Optional number (calculated price, set on completion)
+- **`startedAt`** — Optional Date (set by worker when processing begins)
+- **`finishedAt`** — Optional Date (set by worker on completion or failure)
+- **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 **Status Flow:**
 ```
@@ -232,227 +198,92 @@ Queued → Processing → Completed
                    → Failed
 ```
 
-**Constraints:**
-- `jobNumber` is unique within the SlicingJob collection
-- `designId` is required and must reference a valid Design document
-- Indexed fields: `jobNumber`, `designId`, `orderId`, `status`
-
 ---
 
 ## Workflow Details
 
 ### Automated Slicing Workflow
 
-The slicing workflow is fully automated via BullMQ queue workers:
-
 **Step 1: Job Creation**
-- User calls `POST /execute` with designId and optional material
+- User calls `POST /execute` with `designId` and optional `material`, `preset`, `scale`
 - System validates the design exists
-- System generates unique jobNumber (format: `SLICE-{timestamp}-{random}`)
-- System creates SlicingJob document with status `"Queued"` and references the design
-- Job is dispatched to SLICING queue
+- System creates SlicingJob document with status `"Queued"`, copying `fileUrl` and `name` from the Design
+- Job dispatched to SLICING queue with `jobId` = SlicingJob `_id`
 
 **Step 2: Processing**
 - BullMQ worker picks up job from queue
-- Worker updates SlicingJob status to `"Processing"`
-- Worker sets `startedAt` timestamp
-- Worker calls external slicing API at `http://${WORKER_SERVER_HOST}:${WORKER_SERVER_PORT}/api/slice`
-- External API performs actual slicing operation (STL to G-code conversion)
-- If external API fails, worker falls back to mock simulation
+- Worker updates status to `"Processing"`, sets `startedAt`
+- Worker extracts Google Drive file ID from `stlUrl` and downloads the STL file
+- Worker calls external slicing API: `POST http://{WORKER_SERVER_HOST}:{WORKER_SERVER_PORT}/api/slice`
+- If external API fails, worker automatically falls back to mock simulation
 
 **Step 3: Completion**
-- On success:
-  - Worker updates status to `"Completed"`
-  - Worker sets `gcodeUrl` with generated G-code file URL
-  - Worker sets `weight`, `dimensions`, and `printTime` from worker server response
-  - Worker calculates price based on:
-    - Material cost: `weight × material.currentPricePerGram`
-    - Time cost: `(printTime / 60) × PRINTING_HOURLY_RATE`
-    - Total: `materialCost + timeCost`
-  - Worker sets `calculatedPrice` with the computed price
-  - Worker sets `finishedAt` timestamp
-- On failure:
-  - Worker updates status to `"Failed"`
-  - Worker sets `finishedAt` timestamp
-  - Error logged with correlationId for traceability
-
-**No manual intervention required** - the entire workflow is automated.
+- On success: status → `"Completed"`, sets `gcodeUrl`, `weight`, `dimensions`, `printTime`, `calculatedPrice`, `finishedAt`
+- On failure: status → `"Failed"`, sets `finishedAt`
 
 ### Worker Server Integration
-
-The slicing worker integrates with an external Python-based worker server for actual slicing operations:
-
-**Worker Server Configuration:**
-- Host: `WORKER_SERVER_HOST` (default: `localhost`)
-- Port: `WORKER_SERVER_PORT` (default: `8080`)
-- API Endpoint: `POST /api/slice`
 
 **Request to Worker Server:**
 ```json
 {
-  "filename": "model.stl",
-  "output_filename": "gcode-{jobId}-{timestamp}",
+  "filename": "model-{designId}-{timestamp}.stl",
+  "output_filename": "gcode-{designId}-{timestamp}",
   "material": "pla",
   "preset": "normal",
   "scale": 100
 }
 ```
 
-**Note:** The `preset` and `scale` fields are optional. If not provided in the job data, they will be omitted from the request, and the worker server will use its default values (preset: "normal", scale: 100).
-
 **Response from Worker Server:**
 ```json
 {
-  "status": "success",
-  "original_file": "model.stl",
   "gcode_file": "output.gcode",
   "gcode_path": "/path/to/gcode/output.gcode",
-  "preset": "normal",
-  "material": "pla",
-  "scale": 100,
   "weight": 45.5,
-  "dimensions": {
-    "width": 100,
-    "height": 50,
-    "depth": 75
-  },
+  "dimensions": { "width": 100, "height": 50, "depth": 75 },
   "print_time": 180
 }
 ```
 
-**Required Fields in Worker Server Response:**
-- `weight` (number): Weight of the model in grams
-- `dimensions` (object): Dimensions of the model in millimeters
-  - `width` (number): Width in mm
-  - `height` (number): Height in mm
-  - `depth` (number): Depth in mm
-- `print_time` (number): Estimated print time in minutes
-
-**Fallback Behavior:**
-- If worker server is unavailable or returns an error, the system automatically falls back to mock simulation
-- Mock simulation generates:
-  - Dummy G-code URL after a 5-second delay
-  - Random weight between 20-70 grams
-  - Random dimensions between 50-150 mm for each axis (width, height, depth)
-  - Random print time between 60-240 minutes
-  - Calculated price using the same pricing formula as real slicing
-- Mock data is marked with `isMock: true` in the worker response
-- This ensures the system remains operational even if the worker server is down
-- All required fields (weight, dimensions, printTime, calculatedPrice) are populated in both real and mock modes
+**Fallback Mock Behavior:**
+- Triggered automatically if worker server is unavailable
+- Generates a dummy G-code URL after a 5-second delay
+- Random weight (20–70g), dimensions (50–150mm per axis), print time (60–240 min)
+- Price is calculated using the same formula as real slicing
+- All required fields are populated in both real and mock modes
 
 ### Price Calculation
 
-The slicing worker automatically calculates the price for each completed job based on:
-
-**Formula:**
 ```
-Price = (weight × material_price_per_gram) + (print_time_minutes / 60 × hourly_rate)
+Price = (weight × material.currentPricePerGram) + (printTime / 60 × PRINTING_HOURLY_RATE)
 ```
 
-**Components:**
-1. **Material Cost**: Weight in grams multiplied by the material's `currentPricePerGram` from the Material model
-2. **Time Cost**: Print time in minutes converted to hours, multiplied by the `PRINTING_HOURLY_RATE` setting
+- Material prices stored in the Material model (`currentPricePerGram`)
+- Hourly rate stored in Settings with key `PRINTING_HOURLY_RATE` (default: 10)
 
-**Configuration:**
-- Material prices are stored in the Material model (`currentPricePerGram` field)
-- Hourly rate is stored in Settings with key `PRINTING_HOURLY_RATE` (default: 10)
-
-**Example Calculation:**
-- Weight: 45.5 grams
-- Material: PLA at $0.025/gram
-- Print time: 180 minutes (3 hours)
-- Hourly rate: $10/hour
-
-```
-Material cost = 45.5 × 0.025 = $1.14
-Time cost = (180 / 60) × 10 = $30.00
-Total price = $1.14 + $30.00 = $31.14
-```
-
----
-
-## Error Handling
-
-### Common Errors
-
-**Validation Errors (400)**
-- Missing required fields
-- Invalid field formats
-- Mutual exclusivity violations (productId vs targetOrderItemId)
-
-**Authentication Errors (401)**
-- Missing or invalid authentication token
-- Expired session
-
-**Authorization Errors (403)**
-- User lacks required role (admin or operator)
-
-**Processing Errors**
-- Handled automatically by worker
-- Job status updated to "Failed"
-- Retry logic applied (up to 3 attempts)
-- Failed jobs moved to Dead Letter Queue (DLQ)
+**Example:**
+- Weight: 45.5g, PLA at $0.025/g, print time: 180 min, hourly rate: $10
+- Material cost: 45.5 × 0.025 = $1.14
+- Time cost: (180 / 60) × 10 = $30.00
+- Total: $31.14
 
 ---
 
 ## Queue Configuration
 
-**Queue Name:** `SLICING`
-**Backend:** Redis via BullMQ
-**Worker:** `SlicingWorkerService`
-**Retry Policy:** Up to 3 attempts with exponential backoff
-**DLQ:** Failed jobs after exhausting retries
-
-### Worker Behavior
-
-The SlicingWorkerService:
-- Picks up jobs from the SLICING queue
-- Updates job status to "Processing"
-- Performs slicing operation (or mock simulation)
-- Updates job status to "Completed" with gcodeUrl on success
-- Updates job status to "Failed" on error
-- Logs all operations with correlationId for traceability
-
----
-
-## Job Number Uniqueness
-
-- Job numbers are unique **within** the SlicingJob collection
-- The same job number can exist in both SlicingJob and PrintingJob collections
-- Example: `"JOB-001"` can exist as both a SlicingJob and a PrintingJob
-
----
-
-## Monitoring
-
-Monitor slicing jobs through:
-- Job status in SlicingJob collection
-- BullMQ dashboard (if configured)
-- Application logs with correlationId
-- Queue metrics (waiting, active, completed, failed counts)
+- **Queue Name:** `SLICING`
+- **Backend:** Redis via BullMQ
+- **Concurrency:** 1 (CPU-intensive, one job at a time)
+- **Retry Policy:** Up to 3 attempts with exponential backoff
+- **DLQ:** Failed jobs after exhausting retries are routed to `DEAD_LETTER_QUEUE`
 
 ---
 
 ## Example Usage
 
-### Create and Dispatch Slicing Job
-
-**Basic Example (with defaults):**
 ```bash
+# Dispatch a slicing job
 POST /api/v1/slicing/execute
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
-  "material": "PLA"
-}
-```
-
-**Advanced Example (with custom preset and scale):**
-```bash
-POST /api/v1/slicing/execute
-Content-Type: application/json
 Authorization: Bearer <token>
 
 {
@@ -461,82 +292,8 @@ Authorization: Bearer <token>
   "preset": "heavy",
   "scale": 150
 }
-```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Slicing job for design My Awesome Model dispatched successfully.",
-  "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "SLICE-1705320000000-abc123",
-    "status": "Queued",
-    "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
-    "designName": "My Awesome Model"
-  }
-}
-```
-
-**Job progresses automatically:**
-```
-Queued → Processing → Completed (with gcodeUrl)
-```
-
-No further API calls needed - fully automated!
-
-### Check Slicing Job Status
-
-```bash
+# Poll for status
 GET /api/v1/slicing/status/64f1a2b3c4d5e6f7a8b9c0d1
 Authorization: Bearer <token>
 ```
-
-**Response (Job in Progress):**
-```json
-{
-  "success": true,
-  "message": "SlicingJob status retrieved successfully.",
-  "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "SLICE-1705320000000-abc123",
-    "status": "Processing",
-    "stlFileUrl": "https://storage.example.com/models/model_123.stl",
-    "gcodeUrl": null,
-    "fileName": "model_123.stl",
-    "startedAt": "2024-01-15T10:30:00Z",
-    "finishedAt": null,
-    "createdAt": "2024-01-15T10:29:00Z",
-    "updatedAt": "2024-01-15T10:30:00Z"
-  }
-}
-```
-
-**Response (Job Completed):**
-```json
-{
-  "success": true,
-  "message": "SlicingJob status retrieved successfully.",
-  "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "SLICE-1705320000000-abc123",
-    "status": "Completed",
-    "stlFileUrl": "https://storage.example.com/models/model_123.stl",
-    "gcodeUrl": "https://storage.example.com/gcode/model_123.gcode",
-    "fileName": "model_123.stl",
-    "weight": 45.5,
-    "dimensions": {
-      "width": 100,
-      "height": 50,
-      "depth": 75
-    },
-    "printTime": 180,
-    "calculatedPrice": 31.14,
-    "startedAt": "2024-01-15T10:30:00Z",
-    "finishedAt": "2024-01-15T10:35:00Z",
-    "createdAt": "2024-01-15T10:29:00Z",
-    "updatedAt": "2024-01-15T10:35:00Z"
-  }
-}
-```
-

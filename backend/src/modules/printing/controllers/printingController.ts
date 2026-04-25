@@ -3,7 +3,9 @@ import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 import { PrintingService } from "#src/modules/printing/services/printingService";
 import { SlicingService } from "#src/modules/slicing/services/slicingService";
-import { AppError } from "#src/utils/AppError";
+import { getAuthUser } from "#src/middlewares/authMiddleware";
+import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
+import { PrintingJobData } from "#src/workers/registry";
 import mongoose from "mongoose";
 
 export class PrintingController {
@@ -15,53 +17,63 @@ export class PrintingController {
   public static createPrintingJob = catchAsync(
     async (req: Request, res: Response): Promise<void> => {
       const { slicingJobId } = req.body;
-      const ownerId = (req.user as any)?.id || (req.user as any)?._id?.toString() || "system";
+      const user = getAuthUser(req);
 
       // Fetch the slicing job
       const slicingJob = await SlicingService.getSlicingJobById(slicingJobId);
       
       if (!slicingJob) {
-        throw new AppError("Slicing job not found", 404);
+        sendSuccess(res, 404, "SlicingJob not found.", null);
+        return;
       }
 
-      // Validate that slicing job is completed
       if (slicingJob.status !== "Completed") {
-        throw new AppError(
-          `Slicing job must be completed before creating a printing job. Current status: ${slicingJob.status}`,
-          400
-        );
+        sendSuccess(res, 400, "SlicingJob must be completed before creating a printing job.", null);
+        return;
       }
 
-      // Validate that gcodeUrl exists
       if (!slicingJob.gcodeUrl) {
-        throw new AppError("Slicing job does not have a G-code URL", 400);
+        sendSuccess(res, 400, "SlicingJob must have a valid G-code URL.", null);
+        return;
       }
 
       // Generate unique job number
       const jobNumber = `PRINT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      
+
       // Create PrintingJob document with status "Pending Review"
       const printingJob = await PrintingService.createPrintingJob({
         jobNumber,
         slicingJobId: new mongoose.Types.ObjectId(slicingJobId),
         fileName: slicingJob.fileName || `gcode_${jobNumber}.gcode`,
         gcodeUrl: slicingJob.gcodeUrl,
-        operatorId: new mongoose.Types.ObjectId(ownerId),
+        operatorId: user._id,
       });
 
-      sendSuccess(res, 200, "PrintingJob created successfully. Awaiting review.", {
+      // Dispatch to PRINTING queue using the printing job ID as jobId
+      const printingQueue = queueManager.getQueue(QUEUE_NAMES.PRINTING);
+      const jobData: PrintingJobData = {
+        jobId: printingJob._id.toString(),
+        ownerId: user._id.toString(),
+        gcodeUrl: slicingJob.gcodeUrl,
+        designId: slicingJob.designId?.toString() || slicingJobId,
+      };
+      
+      await printingQueue.add("print-job", jobData);
+
+      sendSuccess(res, 200, "PrintingJob created and dispatched to queue successfully. Awaiting review.", {
         jobId: printingJob._id,
         jobNumber: printingJob.jobNumber,
         status: printingJob.status,
         slicingJobId: slicingJob._id,
+        fileName: slicingJob.fileName,
         gcodeUrl: slicingJob.gcodeUrl,
       });
-    }
+    },
   );
 
   /**
    * @desc    Review a printing job (approve/reject)
-   * @route   POST /api/v1/admin/printing/review
+   * @route   POST /api/v1/printing/review
    * @access  Admin only
    */
   public static reviewPrintingJob = catchAsync(
@@ -70,8 +82,8 @@ export class PrintingController {
 
       const updatedJob = await PrintingService.reviewPrintingJob(jobId, action);
 
-      const message = action === "approve" 
-        ? "PrintingJob approved successfully." 
+      const message = action === "approve"
+        ? "PrintingJob approved successfully."
         : "PrintingJob rejected successfully.";
 
       sendSuccess(res, 200, message, {
@@ -79,12 +91,12 @@ export class PrintingController {
         jobNumber: updatedJob.jobNumber,
         status: updatedJob.status,
       });
-    }
+    },
   );
 
   /**
    * @desc    Get queued printing jobs
-   * @route   GET /api/v1/admin/printing/queued
+   * @route   GET /api/v1/printing/queued
    * @access  Admin only
    */
   public static getQueuedJobs = catchAsync(
@@ -94,12 +106,12 @@ export class PrintingController {
       sendSuccess(res, 200, "Queued printing jobs retrieved successfully.", {
         jobs,
       });
-    }
+    },
   );
 
   /**
    * @desc    Manually start a printing job
-   * @route   POST /api/v1/admin/printing/start
+   * @route   POST /api/v1/printing/start
    * @access  Admin only
    */
   public static startPrintingJob = catchAsync(
@@ -116,12 +128,12 @@ export class PrintingController {
         startedAt: updatedJob.startedAt,
         gcodeUrl: updatedJob.gcodeUrl,
       });
-    }
+    },
   );
 
   /**
    * @desc    Manually complete a printing job
-   * @route   POST /api/v1/admin/printing/complete
+   * @route   POST /api/v1/printing/complete
    * @access  Admin only
    */
   public static completePrintingJob = catchAsync(
@@ -136,12 +148,12 @@ export class PrintingController {
         status: updatedJob.status,
         finishedAt: updatedJob.finishedAt,
       });
-    }
+    },
   );
 
   /**
    * @desc    Manually fail a printing job
-   * @route   POST /api/v1/admin/printing/fail
+   * @route   POST /api/v1/printing/fail
    * @access  Admin only
    */
   public static failPrintingJob = catchAsync(
@@ -156,12 +168,12 @@ export class PrintingController {
         status: updatedJob.status,
         finishedAt: updatedJob.finishedAt,
       });
-    }
+    },
   );
 
   /**
    * @desc    Get the status of a printing job
-   * @route   GET /api/v1/admin/printing/status/:jobId
+   * @route   GET /api/v1/printing/status/:jobId
    * @access  Admin or Operator
    */
   public static getPrintingJobStatus = catchAsync(
@@ -187,6 +199,6 @@ export class PrintingController {
         createdAt: printingJob.createdAt,
         updatedAt: printingJob.updatedAt,
       });
-    }
+    },
   );
 }

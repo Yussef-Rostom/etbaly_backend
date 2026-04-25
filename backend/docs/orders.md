@@ -27,7 +27,6 @@ Returns all orders placed by the authenticated user, sorted newest first.
     "orders": [
       {
         "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
-        "orderNumber": "ORD-1711234567890-abc123",
         "status": "Pending",
         "items": [
           {
@@ -103,7 +102,6 @@ Returns a single order by its ID.
   "data": {
     "order": {
       "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
-      "orderNumber": "ORD-1711234567890-abc123",
       "status": "Processing",
       "items": [
         {
@@ -201,7 +199,6 @@ Returns a paginated list of all orders in the system, sorted newest first. Suppo
     "orders": [
       {
         "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
-        "orderNumber": "ORD-1711234567890-abc123",
         "status": "Pending",
         "userId": "64f1a2b3c4d5e6f7a8b9c0d1",
         "pricingSummary": {

@@ -289,13 +289,12 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`itemRefId`** — ObjectId (dynamic ref based on `itemType`)
   - **`quantity`** — Integer (≥ 1)
   - **`unitPrice`** — Number (≥ 0)
-  - **`customization`** — Optional CustomizationParams object
-    - **`color`** — Optional string
-    - **`infillPercentage`** — Optional number (0–100)
-    - **`layerHeight`** — Optional number (0.05–1.0)
+  - **`printingProperties`** — Optional PrintingProperties object
+    - **`material`** — Optional string (e.g. `"PLA"`, `"ABS"`, `"PETG"`, `"TPU"`)
+    - **`color`** — Optional string (hex color or name)
     - **`scale`** — Optional number (0.1–10, default: 1)
-    - **`customFields`** — Optional free-form key-value object
-  - **`materialId`** — Optional ObjectId ref → Material
+    - **`preset`** — Optional `"heavy"` | `"normal"` | `"draft"`
+    - **`customFields`** — Optional array of `{ key: string, value: string }` objects
 - **`pricingSummary`** — Embedded PricingSummary object
   - **`subtotal`** — Number
   - **`taxAmount`** — Number
@@ -307,7 +306,6 @@ Complete shapes of all MongoDB documents returned by the API.
 ### Order
 
 - **`_id`** — MongoDB ObjectId
-- **`orderNumber`** — Unique string
 - **`status`** — `"Pending"` | `"Processing"` | `"Shipped"` | `"Delivered"` | `"Cancelled"` (default: `"Pending"`)
 - **`items`** — Array of OrderItem objects
   - **`_id`** — ObjectId
@@ -316,8 +314,12 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`quantity`** — Integer (≥ 1)
   - **`price`** — Number (≥ 0)
   - **`status`** — `"Queued"` | `"Printing"` | `"Ready"` (default: `"Queued"`)
-  - **`customization`** — Optional CustomizationParams
-  - **`materialId`** — Optional ObjectId ref → Material
+  - **`printingProperties`** — Optional PrintingProperties object
+    - **`material`** — Optional string
+    - **`color`** — Optional string
+    - **`scale`** — Optional number (0.1–10)
+    - **`preset`** — Optional `"heavy"` | `"normal"` | `"draft"`
+    - **`customFields`** — Optional array of `{ key: string, value: string }` objects
 - **`shippingAddressSnapshot`** — Embedded Address (snapshot at time of order)
 - **`paymentInfo`** — Embedded Payment object
   - **`method`** — `"Card"` | `"Wallet"` | `"COD"`
@@ -331,8 +333,7 @@ Complete shapes of all MongoDB documents returned by the API.
 
 ### SlicingJob
 
-- **`_id`** — MongoDB ObjectId
-- **`jobNumber`** — Unique string within SlicingJob collection
+- **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
 - **`designId`** — ObjectId ref → Design (required)
 - **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
 - **`orderId`** — Optional ObjectId ref → Order
@@ -341,28 +342,26 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`stlFileUrl`** — Optional string (URL to input STL file)
 - **`gcodeUrl`** — Optional string (URL to generated G-code file)
 - **`fileName`** — Optional string
-- **`weight`** — Optional number (weight in grams, required when status is "Completed")
-- **`dimensions`** — Optional object (dimensions in mm, required when status is "Completed")
-  - **`width`** — number (width in mm)
-  - **`height`** — number (height in mm)
-  - **`depth`** — number (depth in mm)
-- **`printTime`** — Optional number (estimated print time in minutes, required when status is "Completed")
-- **`calculatedPrice`** — Optional number (calculated price based on weight and time, required when status is "Completed")
+- **`weight`** — Optional number (weight in grams, set on completion)
+- **`dimensions`** — Optional object (dimensions in mm, set on completion)
+  - **`width`** — number
+  - **`height`** — number
+  - **`depth`** — number
+- **`printTime`** — Optional number (estimated print time in minutes, set on completion)
+- **`calculatedPrice`** — Optional number (calculated price, set on completion)
 - **`startedAt`** / **`finishedAt`** — Optional Dates
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 ### PrintingJob
 
 - **`_id`** — MongoDB ObjectId
-- **`jobNumber`** — Unique string within PrintingJob collection
-- **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
-- **`productId`** — Optional ObjectId ref → Product
-- **`orderId`** — Optional ObjectId ref → Order
+- **`jobNumber`** — Unique string within PrintingJob collection (format: `PRINT-{timestamp}-{random}`)
+- **`slicingJobId`** — ObjectId ref → SlicingJob (required)
 - **`operatorId`** — Optional ObjectId ref → User
 - **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
-- **`gcodeUrl`** — Optional string (URL to G-code file)
-- **`machineId`** — Optional string
-- **`fileName`** — Optional string
+- **`gcodeUrl`** — String (required, URL to G-code file copied from SlicingJob)
+- **`machineId`** — Optional string (3D printer identifier)
+- **`fileName`** — String (required, copied from SlicingJob)
 - **`startedAt`** / **`finishedAt`** — Optional Dates
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 

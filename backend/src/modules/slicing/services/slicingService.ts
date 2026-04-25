@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { AppError } from "#src/utils/AppError";
 
 export interface CreateSlicingJobInput {
-  jobNumber: string;
   designId: mongoose.Types.ObjectId;
   targetOrderItemId?: mongoose.Types.ObjectId;
   stlFileUrl?: string;
@@ -39,9 +38,6 @@ export class SlicingService {
       await slicingJob.save();
       return slicingJob;
     } catch (error: any) {
-      if (error.code === 11000) {
-        throw new AppError("Job number already exists in this collection", 409);
-      }
       if (error.name === "ValidationError") {
         throw new AppError(error.message, 400);
       }
