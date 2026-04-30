@@ -299,6 +299,55 @@ Returns the authenticated user's completed slicing jobs with populated design da
 
 ---
 
+### `DELETE /api/v1/designs/slicing-history/:jobId`
+
+- **Access:** Authenticated (any role)
+
+Deletes a slicing job from the authenticated user's history. Users can only delete their own slicing jobs.
+
+**Path Parameters**
+
+- **`:jobId`** (*string*, Required) — MongoDB ObjectId of the slicing job to delete
+
+**Response 200 — OK**
+```json
+{
+  "success": true,
+  "message": "Slicing history item deleted successfully"
+}
+```
+
+**Response 400 — Invalid Job ID**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      { "field": "jobId", "message": "Invalid job ID" }
+    ]
+  }
+}
+```
+
+**Response 404 — Not Found**
+```json
+{ 
+  "success": false, 
+  "message": "Slicing job not found or you do not have permission to delete it." 
+}
+```
+
+**Response 401 — Unauthenticated**
+```json
+{ 
+  "success": false, 
+  "message": "You are not logged in. Please log in to get access." 
+}
+```
+
+---
+
 ## Admin Endpoints
 
 Base path: `/api/v1/admin/designs`
@@ -387,4 +436,55 @@ Permanently deletes a design and its associated file from storage.
 **Response 404 — Not Found**
 ```json
 { "success": false, "message": "Design not found." }
+```
+
+---
+
+## Example Usage
+
+```bash
+# Upload a design file
+POST /api/v1/designs/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+# Create design record
+POST /api/v1/designs
+Authorization: Bearer <token>
+{
+  "name": "Custom Bracket",
+  "fileUrl": "https://drive.google.com/uc?id=...",
+  "isPrintable": true,
+  "metadata": {
+    "supportedMaterials": ["PLA", "ABS"]
+  }
+}
+
+# Get all designs
+GET /api/v1/designs
+Authorization: Bearer <token>
+
+# Get single design
+GET /api/v1/designs/64f1a2b3c4d5e6f7a8b9c0d3
+Authorization: Bearer <token>
+
+# Get slicing history
+GET /api/v1/designs/slicing-history
+Authorization: Bearer <token>
+
+# Delete slicing history item
+DELETE /api/v1/designs/slicing-history/64f1a2b3c4d5e6f7a8b9c0d5
+Authorization: Bearer <token>
+
+# Admin: Update design
+PATCH /api/v1/admin/designs/64f1a2b3c4d5e6f7a8b9c0d3
+Authorization: Bearer <admin-token>
+{
+  "isPrintable": true,
+  "thumbnailUrl": "https://drive.google.com/uc?id=..."
+}
+
+# Admin: Delete design
+DELETE /api/v1/admin/designs/64f1a2b3c4d5e6f7a8b9c0d3
+Authorization: Bearer <admin-token>
 ```

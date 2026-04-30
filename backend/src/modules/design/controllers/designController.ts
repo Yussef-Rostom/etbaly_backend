@@ -55,4 +55,17 @@ export class DesignController {
       history 
     });
   });
+
+  /**
+   * DELETE /api/v1/designs/slicing-history/:jobId
+   * Deletes a slicing job from user's history
+   */
+  static deleteSlicingHistoryItem = catchAsync(async (req: Request, res: Response) => {
+    const user = getAuthUser(req);
+    const jobId = req.params.jobId as string;
+
+    await DesignService.deleteSlicingHistoryItem(user._id.toString(), jobId);
+
+    sendSuccess(res, 200, "Slicing history item deleted successfully");
+  });
 }

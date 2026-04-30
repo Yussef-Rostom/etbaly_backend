@@ -2,6 +2,10 @@ import { z } from "zod";
 
 export const objectIdParamSchema = z.object({ id: z.string() });
 
+export const jobIdParamSchema = z.object({ 
+  jobId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid job ID") 
+});
+
 export const uploadDesignSchema = z.object({
   name: z
     .string("name is required")
@@ -11,4 +15,5 @@ export const uploadDesignSchema = z.object({
 });
 
 export type ObjectIdParam = z.infer<typeof objectIdParamSchema>;
+export type JobIdParam = z.infer<typeof jobIdParamSchema>;
 export type UploadDesignInput = z.infer<typeof uploadDesignSchema>;

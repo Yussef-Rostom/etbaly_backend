@@ -140,4 +140,29 @@ export class DesignService {
       finishedAt: job.finishedAt,
     }));
   }
+
+  /**
+   * Delete a slicing job from user's history
+   * Only allows deletion of jobs owned by the user
+   */
+  static async deleteSlicingHistoryItem(userId: string, jobId: string): Promise<void> {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new AppError("Invalid user ID.", 400);
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(jobId)) {
+      throw new AppError("Invalid job ID.", 400);
+    }
+
+    const slicingJob = await SlicingJob.findOne({
+      _id: new mongoose.Types.ObjectId(jobId),
+      userId: new mongoose.Types.ObjectId(userId),
+    });
+
+    if (!slicingJob) {
+      throw new AppError("Slicing job not found or you do not have permission to delete it.", 404);
+    }
+
+    await SlicingJob.deleteOne({ _id: slicingJob._id });
+  }
 }
