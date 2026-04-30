@@ -66,6 +66,7 @@ Returns the authenticated user's current cart, including all items and the compu
           "_id": "64f1a2b3c4d5e6f7a8b9c0d5",
           "itemType": "Product",
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
+          "itemName": "3D Printed Vase",
           "quantity": 2,
           "unitPrice": 29.99,
           "thumbnailUrl": "https://drive.google.com/uc?export=view&id=...",
@@ -80,6 +81,7 @@ Returns the authenticated user's current cart, including all items and the compu
           "_id": "64f1a2b3c4d5e6f7a8b9c0d6",
           "itemType": "Design",
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d3",
+          "itemName": "Custom Phone Stand",
           "quantity": 1,
           "unitPrice": 45.50,
           "thumbnailUrl": "https://drive.google.com/uc?export=view&id=...",
@@ -239,6 +241,7 @@ Adds an item to the cart. If an item with the same configuration already exists,
           "_id": "64f1a2b3c4d5e6f7a8b9c0d5",
           "itemType": "Design",
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
+          "itemName": "Custom Phone Stand",
           "quantity": 2,
           "unitPrice": 31.14,
           "slicingJobId": "64f1a2b3c4d5e6f7a8b9c0d6",
@@ -506,7 +509,9 @@ Removes all items from the cart and resets the pricing summary. The cart documen
 
 - **Access:** Authenticated (any role)
 
-Converts the current cart into an order. The cart must contain at least one item. All item prices are validated and updated to current prices before order creation. The cart is deleted after successful checkout.
+Converts the current cart into an order and creates printing jobs for each cart item. The cart must contain at least one item with a valid slicing job reference. Prices are locked from the cart (no recalculation). The cart is deleted after successful checkout.
+
+**Important:** This endpoint automatically creates PrintingJobs (status: "Pending Review") for each cart item quantity. For example, if a cart item has quantity 3, three separate printing jobs will be created.
 
 **Request Body (JSON)**
 
@@ -604,6 +609,22 @@ Converts the current cart into an order. The cart must contain at least one item
 }
 ```
 
+**Response 400 — Missing Slicing Job**
+```json
+{ 
+  "success": false, 
+  "message": "Cart item is missing slicing job reference. Please re-add the item to cart." 
+}
+```
+
+**Response 400 — Slicing Job Missing G-code**
+```json
+{ 
+  "success": false, 
+  "message": "Slicing job 64f1a2b3c4d5e6f7a8b9c0d6 not found or missing G-code URL." 
+}
+```
+
 **Response 404 — User Not Found**
 ```json
 { 
@@ -636,6 +657,7 @@ Represents a user's shopping cart with items and pricing information.
   - **`_id`** — ObjectId (cart item ID, used for updates/deletes)
   - **`itemType`** — `"Product"` | `"Design"`
   - **`itemRefId`** — ObjectId (dynamic ref based on itemType)
+  - **`itemName`** — String (name of the product or design)
   - **`quantity`** — Integer (≥ 1)
   - **`unitPrice`** — Number (≥ 0, price per unit locked when item is added)
   - **`slicingJobId`** — Optional ObjectId ref → SlicingJob (for Design items, tracks which slicing job was used for pricing)

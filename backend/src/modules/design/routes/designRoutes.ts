@@ -9,10 +9,10 @@ import { createDesignSchema } from "#src/modules/design/validators/designAdminVa
 
 const router = Router();
 
-// Accepts STL, OBJ, 3MF and common 3D file types up to 50 MB
+// Accepts STL, OBJ, 3MF and common 3D file types up to 200 MB
 const uploadDesign = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       "model/stl",

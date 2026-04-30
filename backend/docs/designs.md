@@ -14,7 +14,7 @@ The designs module manages 3D design files and their metadata. Designs can be up
 
 **Key Features:**
 - Upload 3D design files (STL, OBJ, 3MF) to Google Drive
-- Automatic file validation and size limits (50MB)
+- Automatic file validation and size limits (200MB)
 - Role-based visibility (users see their own, admins see all)
 - Integration with slicing workflow
 - Metadata tracking (name, fileUrl, owner, timestamps)
@@ -46,7 +46,7 @@ Uploads a 3D design file (e.g. `.stl`, `.obj`, `.3mf`) to Google Drive and retur
 
 **Form Fields**
 
-- **`file`** (*file*, Required) — Max 50 MB
+- **`file`** (*file*, Required) — Max 200 MB
 - **`name`** (*string*, Required) — Display name for the file (used in validation)
 
 **Response 201 — Created**

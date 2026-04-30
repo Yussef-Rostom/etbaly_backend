@@ -8,6 +8,7 @@ export interface ICartItem {
   _id: Types.ObjectId;
   itemType: "Product" | "Design";
   itemRefId: Types.ObjectId;
+  itemName: string; // Name of the product or design
   quantity: number;
   unitPrice: number;
   thumbnailUrl?: string;
@@ -26,6 +27,11 @@ export const cartItemSchema = new Schema<ICartItem>(
       type: Schema.Types.ObjectId,
       required: true,
       refPath: "items.itemType",
+    },
+    itemName: {
+      type: String,
+      required: true,
+      trim: true,
     },
     quantity: {
       type: Number,

@@ -304,7 +304,6 @@ Assigns a specific order item to a 3D printer. Creates a `PrintingJob` document 
   "data": {
     "job": {
       "_id": "64f1a2b3c4d5e6f7a8b9c0e1",
-      "jobNumber": "JOB-1711234567890-x7k2mq",
       "orderId": "64f1a2b3c4d5e6f7a8b9c0d7",
       "targetOrderItemId": "64f1a2b3c4d5e6f7a8b9c0d8",
       "machineId": "PRINTER-01",

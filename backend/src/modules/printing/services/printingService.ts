@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { AppError } from "#src/utils/AppError";
 
 export interface CreatePrintingJobInput {
-  jobNumber: string;
   slicingJobId: mongoose.Types.ObjectId;
   gcodeUrl: string;
   fileName: string;
@@ -37,9 +36,6 @@ export class PrintingService {
       await printingJob.save();
       return printingJob;
     } catch (error: any) {
-      if (error.code === 11000) {
-        throw new AppError("Job number already exists in this collection", 409);
-      }
       if (error.name === "ValidationError") {
         throw new AppError(error.message, 400);
       }

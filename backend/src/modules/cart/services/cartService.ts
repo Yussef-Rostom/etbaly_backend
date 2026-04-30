@@ -8,6 +8,7 @@ import { User } from "#src/models/User";
 import { AppError } from "#src/utils/AppError";
 import { OrderService } from "#src/modules/order/services/orderService";
 import { MaterialService } from "#src/modules/material/services/materialService";
+import { PrintingService } from "#src/modules/printing/services/printingService";
 import {
   AddCartItemInput,
   UpdateCartItemInput,
@@ -110,9 +111,16 @@ export class CartService {
       await MaterialService.validateMaterial(slicingJob.material, slicingJob.color);
     }
 
+    // Get design name
+    const design = await Design.findById(slicingJob.designId, { name: 1 });
+    if (!design) {
+      throw new AppError("Design not found.", 404);
+    }
+
     return {
       itemType: "Design" as const,
       itemRefId: slicingJob.designId.toString(),
+      itemName: design.name,
       price: slicingJob.calculatedPrice,
       slicingJobId: slicingJob._id,
       printingProperties: {
@@ -192,6 +200,11 @@ export class CartService {
     if (itemType === "Design") {
       await MaterialService.validateMaterial(material, color);
 
+      const design = await Design.findById(itemRefId, { name: 1 });
+      if (!design) {
+        throw new AppError("Design not found.", 404);
+      }
+
       const { price, slicingJobId } = await this.findMatchingSlicingJob(
         itemRefId,
         material,
@@ -203,26 +216,35 @@ export class CartService {
       return {
         itemType,
         itemRefId,
+        itemName: design.name,
         price,
         slicingJobId,
         printingProperties,
       };
     }
 
-    // For Product items, get price from product base price
+    // For Product items, get the linked design and find matching slicing job
     const product = await Product.findOne({ _id: itemRefId, isActive: true });
     if (!product) {
       throw new AppError("Product not found or is no longer available.", 404);
     }
 
-    // Still validate material+color combination exists
     await MaterialService.validateMaterial(material, color);
+
+    const { price, slicingJobId } = await this.findMatchingSlicingJob(
+      product.linkedDesignId.toString(),
+      material,
+      color,
+      printingProperties.scale,
+      printingProperties.preset
+    );
 
     return {
       itemType,
       itemRefId,
-      price: product.currentBasePrice,
-      slicingJobId: undefined,
+      itemName: product.name,
+      price,
+      slicingJobId,
       printingProperties,
     };
   }
@@ -313,7 +335,7 @@ export class CartService {
       ? await this.resolveFromSlicingJob(dto.slicingJobId)
       : await this.resolveFromManualParams(dto);
 
-    const { itemType, itemRefId, price, slicingJobId, printingProperties } = resolved;
+    const { itemType, itemRefId, itemName, price, slicingJobId, printingProperties } = resolved;
 
     // Get thumbnail
     const thumbnailUrl = await this.resolveThumbnailUrl(itemType, itemRefId);
@@ -336,6 +358,7 @@ export class CartService {
       cart.items.push({
         itemType,
         itemRefId: new Types.ObjectId(itemRefId),
+        itemName,
         quantity: dto.quantity,
         unitPrice: price,
         thumbnailUrl,
@@ -426,7 +449,7 @@ export class CartService {
   }
 
   /**
-   * Converts cart to order and clears the cart
+   * Converts cart to order, creates printing jobs, and clears the cart
    */
   static async checkout(userId: string, dto: CheckoutInput): Promise<IOrder> {
     const cart = await this.getCart(userId);
@@ -442,11 +465,17 @@ export class CartService {
       throw new AppError("User not found.", 404);
     }
 
-    // Validate all items have required material specification
+    // Validate all items have required specifications
     for (const item of cart.items) {
       if (!item.printingProperties?.material) {
         throw new AppError(
           `Cart item is missing required material specification.`,
+          400
+        );
+      }
+      if (!item.slicingJobId) {
+        throw new AppError(
+          `Cart item is missing slicing job reference. Please re-add the item to cart.`,
           400
         );
       }
@@ -470,6 +499,28 @@ export class CartService {
       paymentMethod: dto.paymentMethod,
       pricingSummary: cart.pricingSummary,
     });
+
+    // Create printing jobs for each cart item
+    for (const item of cart.items) {
+      // Get slicing job details
+      const slicingJob = await SlicingJob.findById(item.slicingJobId);
+      
+      if (!slicingJob || !slicingJob.gcodeUrl) {
+        throw new AppError(
+          `Slicing job ${item.slicingJobId} not found or missing G-code URL.`,
+          400
+        );
+      }
+
+      // Create printing job for each quantity
+      for (let i = 0; i < item.quantity; i++) {
+        await PrintingService.createPrintingJob({
+          slicingJobId: item.slicingJobId!, // Already validated above
+          gcodeUrl: slicingJob.gcodeUrl,
+          fileName: slicingJob.fileName || `${item.itemRefId}-${i + 1}.gcode`,
+        });
+      }
+    }
 
     // Clear cart after successful order creation
     await Cart.deleteOne({ userId });

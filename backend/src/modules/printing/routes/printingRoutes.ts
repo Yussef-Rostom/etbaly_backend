@@ -2,7 +2,6 @@ import { Router } from "express";
 import { PrintingController } from "#src/modules/printing/controllers/printingController";
 import { validate } from "#src/middlewares/validate";
 import {
-  executePrintingJobSchema,
   reviewPrintingJobSchema,
   startPrintingJobSchema,
   completePrintingJobSchema,
@@ -13,16 +12,7 @@ import { restrictTo } from "#src/middlewares/roleMiddleware";
 
 const router = Router();
 
-// Public routes for authenticated users
-router
-  .route("/execute")
-  .post(authMiddleware, validate(executePrintingJobSchema), PrintingController.createPrintingJob);
-
-router
-  .route("/status/:jobId")
-  .get(authMiddleware, PrintingController.getPrintingJobStatus);
-
-// Require authentication and admin/operator role for management routes
+// All routes require authentication and admin/operator role
 router.use(authMiddleware, restrictTo("admin", "operator"));
 
 // Printing job management routes (admin only)

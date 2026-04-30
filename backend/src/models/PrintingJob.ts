@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export interface IPrintingJob extends Document {
-  jobNumber: string;
   slicingJobId: mongoose.Types.ObjectId;
   status: "Pending Review" | "Approved" | "Rejected" | "Queued" | "Processing" | "Completed" | "Failed";
   gcodeUrl: string;
@@ -16,12 +15,6 @@ export interface IPrintingJob extends Document {
 
 const printingJobSchema = new Schema<IPrintingJob>(
   {
-    jobNumber: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
     slicingJobId: {
       type: Schema.Types.ObjectId,
       ref: "SlicingJob",

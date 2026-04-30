@@ -20,8 +20,8 @@ The printing module manages manual physical 3D printing workflows with admin app
 
 **Workflow:**
 ```
-1. User calls POST /execute with slicingJobId
-   → PrintingJob created (status: "Pending Review"), dispatched to PRINTING queue
+1. User completes cart checkout
+   → PrintingJobs created automatically (status: "Pending Review"), one per cart item quantity
 2. Admin calls POST /review → Approve (→ "Queued") or Reject (→ "Rejected")
 3. Admin calls POST /start → "Processing" (sets startedAt)
    → Admin downloads G-code from gcodeUrl and manually sends to printer
@@ -31,118 +31,6 @@ The printing module manages manual physical 3D printing workflows with admin app
 ---
 
 ## Endpoints
-
-### `POST /api/v1/printing/execute`
-
-- **Access:** Authenticated Users
-
-Creates a PrintingJob from a completed slicing job and dispatches it to the PRINTING queue.
-
-**Request Body (JSON)**
-
-- **`slicingJobId`** (*string*, Required)
-  - *Validation:* Valid MongoDB ObjectId (24-character hex string)
-  - *Constraints:* The referenced SlicingJob must have status `"Completed"` and a valid `gcodeUrl`
-
-**Response 200 — OK**
-```json
-{
-  "success": true,
-  "message": "PrintingJob created and dispatched to queue successfully. Awaiting review.",
-  "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
-    "status": "Pending Review",
-    "slicingJobId": "64f1a2b3c4d5e6f7a8b9c0d2",
-    "fileName": "model.stl",
-    "gcodeUrl": "https://storage.example.com/gcode/model.gcode"
-  }
-}
-```
-
-**Response 400 — SlicingJob Not Completed**
-```json
-{
-  "success": false,
-  "message": "SlicingJob must be completed before creating a printing job."
-}
-```
-
-**Response 400 — Missing G-code URL**
-```json
-{
-  "success": false,
-  "message": "SlicingJob must have a valid G-code URL."
-}
-```
-
-**Response 400 — Validation Error**
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "data": {
-    "errors": [
-      { "field": "slicingJobId", "message": "slicingJobId must be a valid MongoDB ObjectId" }
-    ]
-  }
-}
-```
-
-**Response 404 — SlicingJob Not Found**
-```json
-{
-  "success": false,
-  "message": "SlicingJob not found."
-}
-```
-
-**Response 401 — Unauthenticated**
-```json
-{ "success": false, "message": "You are not logged in. Please log in to get access." }
-```
-
----
-
-### `GET /api/v1/printing/status/:jobId`
-
-- **Access:** Authenticated Users
-
-Retrieves the current status and details of a printing job.
-
-**Path Parameters**
-
-- **`:jobId`** (*string*, Required) — MongoDB ObjectId of the PrintingJob
-
-**Response 200 — OK**
-```json
-{
-  "success": true,
-  "message": "PrintingJob status retrieved successfully.",
-  "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
-    "status": "Processing",
-    "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
-    "machineId": "PRINTER-01",
-    "fileName": "model.stl",
-    "startedAt": "2024-01-15T11:00:00Z",
-    "finishedAt": null,
-    "createdAt": "2024-01-15T10:30:00Z",
-    "updatedAt": "2024-01-15T11:00:00Z"
-  }
-}
-```
-
-**Response 404 — Not Found**
-```json
-{
-  "success": false,
-  "message": "PrintingJob not found."
-}
-```
-
----
 
 ### `POST /api/v1/printing/review`
 
@@ -162,7 +50,6 @@ Approves or rejects a PrintingJob in `"Pending Review"` status.
   "message": "PrintingJob approved successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
     "status": "Queued"
   }
 }
@@ -175,7 +62,6 @@ Approves or rejects a PrintingJob in `"Pending Review"` status.
   "message": "PrintingJob rejected successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
     "status": "Rejected"
   }
 }
@@ -206,7 +92,6 @@ Returns all PrintingJobs with status `"Queued"`.
     "jobs": [
       {
         "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
-        "jobNumber": "PRINT-1705320000000-xyz789",
         "status": "Queued",
         "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
         "fileName": "model.stl",
@@ -238,7 +123,6 @@ Starts a PrintingJob, transitioning from `"Queued"` to `"Processing"`.
   "message": "PrintingJob started successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
     "status": "Processing",
     "machineId": "PRINTER-01",
     "startedAt": "2024-01-15T11:00:00Z",
@@ -276,7 +160,6 @@ Completes a PrintingJob, transitioning from `"Processing"` to `"Completed"`.
   "message": "PrintingJob completed successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
     "status": "Completed",
     "finishedAt": "2024-01-15T12:00:00Z"
   }
@@ -311,7 +194,6 @@ Fails a PrintingJob, transitioning from `"Processing"` to `"Failed"`.
   "message": "PrintingJob marked as failed.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "jobNumber": "PRINT-1705320000000-xyz789",
     "status": "Failed",
     "finishedAt": "2024-01-15T12:00:00Z"
   }
@@ -333,7 +215,6 @@ Fails a PrintingJob, transitioning from `"Processing"` to `"Failed"`.
 ### PrintingJob
 
 - **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
-- **`jobNumber`** — Unique string (format: `PRINT-{timestamp}-{random}`)
 - **`slicingJobId`** — ObjectId ref → SlicingJob (required)
 - **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
 - **`gcodeUrl`** — String (required, copied from the SlicingJob)
@@ -344,7 +225,7 @@ Fails a PrintingJob, transitioning from `"Processing"` to `"Failed"`.
 - **`finishedAt`** — Optional Date (set when admin calls `/complete` or `/fail`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
-**Indexed fields:** `jobNumber`, `slicingJobId`, `status`
+**Indexed fields:** `slicingJobId`, `status`
 
 **Status Flow:**
 ```
@@ -376,31 +257,36 @@ When a PrintingJob is created, it is dispatched to the `PRINTING` BullMQ queue w
 ## Example Usage
 
 ```bash
-# Step 1: Create printing job from a completed slicing job
-POST /api/v1/printing/execute
+# Step 1: User completes checkout (printing jobs created automatically)
+POST /api/v1/cart/checkout
 Authorization: Bearer <token>
-{ "slicingJobId": "64f1a2b3c4d5e6f7a8b9c0d2" }
+{
+  "shippingAddress": {
+    "street": "123 Main St",
+    "city": "Cairo",
+    "country": "Egypt",
+    "zip": "12345"
+  },
+  "paymentMethod": "Card"
+}
+# → PrintingJobs created automatically for each cart item quantity
 
-# Step 2: Check status
-GET /api/v1/printing/status/64f1a2b3c4d5e6f7a8b9c0d1
-Authorization: Bearer <token>
-
-# Step 3: Admin approves
+# Step 2: Admin reviews pending jobs
 POST /api/v1/printing/review
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "action": "approve" }
 
-# Step 4: Admin gets queued jobs
+# Step 3: Admin gets queued jobs
 GET /api/v1/printing/queued
 Authorization: Bearer <admin-token>
 
-# Step 5: Admin starts printing
+# Step 4: Admin starts printing
 POST /api/v1/printing/start
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "machineId": "PRINTER-01" }
 # → Download gcodeUrl and send to printer manually
 
-# Step 6: Admin marks complete
+# Step 5: Admin marks complete
 POST /api/v1/printing/complete
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1" }

@@ -38,21 +38,16 @@ export class PrintingController {
         throw new AppError("Slicing job does not have a G-code URL", 400);
       }
 
-      // Generate unique job number
-      const jobNumber = `PRINT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
       // Create PrintingJob document with status "Pending Review"
       const printingJob = await PrintingService.createPrintingJob({
-        jobNumber,
         slicingJobId: new mongoose.Types.ObjectId(slicingJobId),
-        fileName: slicingJob.fileName || `gcode_${jobNumber}.gcode`,
+        fileName: slicingJob.fileName || `gcode_${slicingJob._id}.gcode`,
         gcodeUrl: slicingJob.gcodeUrl,
         operatorId: user._id,
       });
 
       sendSuccess(res, 200, "PrintingJob created successfully. Awaiting review.", {
         jobId: printingJob._id,
-        jobNumber: printingJob.jobNumber,
         status: printingJob.status,
         slicingJobId: slicingJob._id,
         gcodeUrl: slicingJob.gcodeUrl,
@@ -77,7 +72,6 @@ export class PrintingController {
 
       sendSuccess(res, 200, message, {
         jobId: updatedJob._id,
-        jobNumber: updatedJob.jobNumber,
         status: updatedJob.status,
       });
     },
@@ -111,7 +105,6 @@ export class PrintingController {
 
       sendSuccess(res, 200, "PrintingJob started successfully.", {
         jobId: updatedJob._id,
-        jobNumber: updatedJob.jobNumber,
         status: updatedJob.status,
         machineId: updatedJob.machineId,
         startedAt: updatedJob.startedAt,
@@ -133,7 +126,6 @@ export class PrintingController {
 
       sendSuccess(res, 200, "PrintingJob completed successfully.", {
         jobId: updatedJob._id,
-        jobNumber: updatedJob.jobNumber,
         status: updatedJob.status,
         finishedAt: updatedJob.finishedAt,
       });
@@ -153,7 +145,6 @@ export class PrintingController {
 
       sendSuccess(res, 200, "PrintingJob marked as failed.", {
         jobId: updatedJob._id,
-        jobNumber: updatedJob.jobNumber,
         status: updatedJob.status,
         finishedAt: updatedJob.finishedAt,
       });
@@ -178,7 +169,6 @@ export class PrintingController {
 
       sendSuccess(res, 200, "PrintingJob status retrieved successfully.", {
         jobId: printingJob._id,
-        jobNumber: printingJob.jobNumber,
         status: printingJob.status,
         gcodeUrl: printingJob.gcodeUrl,
         machineId: printingJob.machineId,

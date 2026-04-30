@@ -288,6 +288,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`_id`** — ObjectId (use this as `:id` in cart item routes)
   - **`itemType`** — `"Product"` | `"Design"`
   - **`itemRefId`** — ObjectId (dynamic ref based on `itemType`)
+  - **`itemName`** — String (name of the product or design)
   - **`quantity`** — Integer (≥ 1)
   - **`unitPrice`** — Number (≥ 0, locked at time of adding to cart)
   - **`thumbnailUrl`** — Optional string (URL to item thumbnail)
@@ -364,8 +365,7 @@ Complete shapes of all MongoDB documents returned by the API.
 
 ### PrintingJob
 
-- **`_id`** — MongoDB ObjectId
-- **`jobNumber`** — Unique string within PrintingJob collection (format: `PRINT-{timestamp}-{random}`)
+- **`_id`** — MongoDB ObjectId (used as jobId in all responses)
 - **`slicingJobId`** — ObjectId ref → SlicingJob (required)
 - **`operatorId`** — Optional ObjectId ref → User
 - **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
