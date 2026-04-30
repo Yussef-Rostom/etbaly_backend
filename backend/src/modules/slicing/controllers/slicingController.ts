@@ -43,19 +43,27 @@ export class SlicingController {
       );
 
       if (existingJob) {
-        console.log(`♻️  Reusing existing slicing job ${existingJob._id} for design ${design.name}`);
+        console.log(`♻️  Copying results from existing slicing job ${existingJob._id} for user ${user._id}`);
         
-        sendSuccess(res, 200, `Slicing job already exists for design ${design.name} with these parameters.`, {
-          jobId: existingJob._id,
-          status: existingJob.status,
+        // Create a new job for this user with copied results
+        const newJob = await SlicingService.createSlicingJobFromExisting(
+          user._id,
+          existingJob,
+          color
+        );
+
+        sendSuccess(res, 200, `Slicing job created for design ${design.name} using existing results.`, {
+          jobId: newJob._id,
+          status: newJob.status,
           designId: design._id,
           designName: design.name,
-          gcodeUrl: existingJob.gcodeUrl,
-          weight: existingJob.weight,
-          dimensions: existingJob.dimensions,
-          printTime: existingJob.printTime,
-          calculatedPrice: existingJob.calculatedPrice,
+          gcodeUrl: newJob.gcodeUrl,
+          weight: newJob.weight,
+          dimensions: newJob.dimensions,
+          printTime: newJob.printTime,
+          calculatedPrice: newJob.calculatedPrice,
           reused: true,
+          copiedFromJobId: existingJob._id,
         });
         return;
       }
@@ -63,6 +71,7 @@ export class SlicingController {
       // Create SlicingJob document with status "Queued"
       const slicingJob = await SlicingService.createSlicingJob({
         designId: new mongoose.Types.ObjectId(designId),
+        userId: user._id,
         fileName: design.name,
         stlFileUrl: design.fileUrl,
         material: normalizedMaterial,

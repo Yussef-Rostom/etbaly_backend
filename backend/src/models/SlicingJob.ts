@@ -3,6 +3,7 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface ISlicingJob extends Document {
   designId: mongoose.Types.ObjectId;
   targetOrderItemId?: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId; // User who requested this slicing job
   status: "Queued" | "Processing" | "Completed" | "Failed";
   stlFileUrl?: string;
   gcodeUrl?: string;
@@ -19,6 +20,7 @@ export interface ISlicingJob extends Document {
   };
   printTime?: number; // Print time in minutes
   calculatedPrice?: number; // Calculated price based on weight and time
+  copiedFromJobId?: mongoose.Types.ObjectId; // Reference to the original job if results were copied
   startedAt?: Date;
   finishedAt?: Date;
   orderId?: mongoose.Types.ObjectId;
@@ -37,6 +39,12 @@ const slicingJobSchema = new Schema<ISlicingJob>(
       type: Schema.Types.ObjectId,
       ref: "Design",
       required: [true, "Design ID is required"],
+      index: true,
+    },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: [true, "User ID is required"],
       index: true,
     },
     status: {
@@ -98,6 +106,12 @@ const slicingJobSchema = new Schema<ISlicingJob>(
       type: Number,
       min: 0,
     },
+    copiedFromJobId: {
+      type: Schema.Types.ObjectId,
+      ref: "SlicingJob",
+      required: false,
+      index: true,
+    },
     startedAt: {
       type: Date,
     },
@@ -129,10 +143,13 @@ slicingJobSchema.index({
   status: 1 
 });
 
-// Pre-validation hook to ensure designId is provided
+// Pre-validation hook to ensure required fields are provided
 slicingJobSchema.pre('validate', function() {
   if (!this.designId) {
     this.invalidate('designId', 'Design ID is required');
+  }
+  if (!this.userId) {
+    this.invalidate('userId', 'User ID is required');
   }
 });
 

@@ -17,7 +17,8 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 - Real-time status tracking through SlicingJob model
 - Queue management with Redis-backed BullMQ
 - Automatic retry logic and failure tracking
-- **Smart job deduplication**: Reuses existing completed jobs with identical parameters
+- **Smart job deduplication**: Creates new job per user but copies results from existing completed jobs
+- **Per-user job tracking**: Each user gets their own SlicingJob record with userId
 - Cost optimization by avoiding redundant slicing operations
 - Automatic fallback to mock simulation if worker server is unavailable
 
@@ -89,9 +90,9 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
 ```json
 {
   "success": true,
-  "message": "Slicing job already exists for design My Awesome Model with these parameters.",
+  "message": "Slicing job created for design My Awesome Model using existing results.",
   "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d9",
     "status": "Completed",
     "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
     "designName": "My Awesome Model",
@@ -104,7 +105,8 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
     },
     "printTime": 180,
     "calculatedPrice": 31.14,
-    "reused": true
+    "reused": true,
+    "copiedFromJobId": "64f1a2b3c4d5e6f7a8b9c0d1"
   }
 }
 ```
@@ -219,6 +221,7 @@ Represents an automated slicing operation that converts STL files to G-code.
 
 - **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
 - **`designId`** — ObjectId ref → Design (required)
+- **`userId`** — ObjectId ref → User (required, user who requested this job)
 - **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
 - **`orderId`** — Optional ObjectId ref → Order
 - **`operatorId`** — Optional ObjectId ref → User (user who initiated the job)
@@ -237,12 +240,13 @@ Represents an automated slicing operation that converts STL files to G-code.
   - **`depth`** — number
 - **`printTime`** — Optional number (estimated print time in minutes, set on completion)
 - **`calculatedPrice`** — Optional number (calculated price, set on completion)
+- **`copiedFromJobId`** — Optional ObjectId ref → SlicingJob (reference to original job if results were copied)
 - **`startedAt`** — Optional Date (set by worker when processing begins)
 - **`finishedAt`** — Optional Date (set by worker on completion or failure)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 **Indexes:**
-- Single indexes: `designId`, `orderId`, `status`, `material`, `preset`
+- Single indexes: `designId`, `userId`, `orderId`, `status`, `material`, `preset`, `copiedFromJobId`
 - Compound index: `(designId, material, preset, scale, status)` for efficient deduplication
 
 **Status Flow:**
@@ -262,10 +266,14 @@ Queued → Processing → Completed
 - System validates the design exists
 - **System checks for existing completed job with identical parameters**
   - Parameters checked: designId, material, preset, scale
-  - If found: Returns existing job immediately with `reused: true`
-  - If not found: Proceeds to create new job
+  - If found: Creates new job for current user with copied results (status: "Completed")
+    - New job gets its own `_id` and `userId`
+    - Results (gcodeUrl, weight, dimensions, printTime, calculatedPrice) are copied
+    - `copiedFromJobId` references the original job
+    - Returns immediately with `reused: true`
+  - If not found: Proceeds to create new job and dispatch to queue
 - System creates SlicingJob document with status `"Queued"`, copying `fileUrl` and `name` from the Design
-- System stores slicing parameters (material, color, preset, scale) for future deduplication
+- System stores slicing parameters (material, color, preset, scale) and `userId` for tracking
 - Job dispatched to SLICING queue with `jobId` = SlicingJob `_id`
 
 **Step 2: Processing**
@@ -403,19 +411,20 @@ Authorization: Bearer <token>
   "material": "PLA"
 }
 
-# Response: Existing job reused (instant response, no processing)
+# Response: Existing job reused (instant response, new job created with copied results)
 {
   "success": true,
-  "message": "Slicing job already exists for design My Model with these parameters.",
+  "message": "Slicing job created for design My Model using existing results.",
   "data": {
-    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d9",
     "status": "Completed",
     "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
     "weight": 45.5,
     "dimensions": { "width": 100, "height": 50, "depth": 75 },
     "printTime": 180,
     "calculatedPrice": 31.14,
-    "reused": true
+    "reused": true,
+    "copiedFromJobId": "64f1a2b3c4d5e6f7a8b9c0d1"
   }
 }
 

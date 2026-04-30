@@ -336,6 +336,7 @@ Complete shapes of all MongoDB documents returned by the API.
 
 - **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
 - **`designId`** — ObjectId ref → Design (required)
+- **`userId`** — ObjectId ref → User (required, user who requested this job)
 - **`targetOrderItemId`** — Optional ObjectId (ref to an order item)
 - **`orderId`** — Optional ObjectId ref → Order
 - **`operatorId`** — Optional ObjectId ref → User
@@ -343,6 +344,10 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`stlFileUrl`** — Optional string (URL to input STL file)
 - **`gcodeUrl`** — Optional string (URL to generated G-code file)
 - **`fileName`** — Optional string
+- **`material`** — Optional string (material type, stored in uppercase)
+- **`color`** — Optional string (filament color)
+- **`preset`** — Optional string (slicing preset: heavy, normal, draft)
+- **`scale`** — Optional number (scale percentage: 1-1000, default 100)
 - **`weight`** — Optional number (weight in grams, set on completion)
 - **`dimensions`** — Optional object (dimensions in mm, set on completion)
   - **`width`** — number
@@ -350,6 +355,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`depth`** — number
 - **`printTime`** — Optional number (estimated print time in minutes, set on completion)
 - **`calculatedPrice`** — Optional number (calculated price, set on completion)
+- **`copiedFromJobId`** — Optional ObjectId ref → SlicingJob (reference to original job if results were copied)
 - **`startedAt`** / **`finishedAt`** — Optional Dates
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 

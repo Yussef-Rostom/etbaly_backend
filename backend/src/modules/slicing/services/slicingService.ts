@@ -4,6 +4,7 @@ import { AppError } from "#src/utils/AppError";
 
 export interface CreateSlicingJobInput {
   designId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   targetOrderItemId?: mongoose.Types.ObjectId;
   stlFileUrl?: string;
   fileName?: string;
@@ -13,6 +14,7 @@ export interface CreateSlicingJobInput {
   scale?: number;
   orderId?: mongoose.Types.ObjectId;
   operatorId?: mongoose.Types.ObjectId;
+  copiedFromJobId?: mongoose.Types.ObjectId;
 }
 
 export interface SlicingJobFilters {
@@ -27,7 +29,7 @@ export type SlicingJobStatus = "Queued" | "Processing" | "Completed" | "Failed";
 export class SlicingService {
   /**
    * Finds an existing completed slicing job with the same parameters
-   * This avoids redundant slicing operations for identical requests
+   * This is used to copy results without re-slicing
    * 
    * @param designId - The design ID
    * @param material - Material type (normalized to uppercase)
@@ -69,6 +71,44 @@ export class SlicingService {
 
     // Find the most recent matching job
     return await SlicingJob.findOne(query).sort({ createdAt: -1 });
+  }
+
+  /**
+   * Creates a new SlicingJob by copying results from an existing completed job
+   * This avoids redundant slicing operations while maintaining per-user job records
+   * 
+   * @param userId - The user requesting the slicing job
+   * @param existingJob - The completed job to copy results from
+   * @param color - Optional color override
+   * @returns The created SlicingJob document with copied results
+   */
+  static async createSlicingJobFromExisting(
+    userId: mongoose.Types.ObjectId,
+    existingJob: ISlicingJob,
+    color?: string
+  ): Promise<ISlicingJob> {
+    const newJob = new SlicingJob({
+      designId: existingJob.designId,
+      userId,
+      stlFileUrl: existingJob.stlFileUrl,
+      fileName: existingJob.fileName,
+      material: existingJob.material,
+      color: color || existingJob.color,
+      preset: existingJob.preset,
+      scale: existingJob.scale,
+      status: "Completed",
+      gcodeUrl: existingJob.gcodeUrl,
+      weight: existingJob.weight,
+      dimensions: existingJob.dimensions,
+      printTime: existingJob.printTime,
+      calculatedPrice: existingJob.calculatedPrice,
+      copiedFromJobId: existingJob._id,
+      startedAt: new Date(),
+      finishedAt: new Date(),
+    });
+
+    await newJob.save();
+    return newJob;
   }
 
   /**
