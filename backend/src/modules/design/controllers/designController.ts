@@ -41,4 +41,18 @@ export class DesignController {
 
     sendSuccess(res, 200, "Design fetched successfully", { design });
   });
+
+  /**
+   * GET /api/v1/designs/slicing-history
+   * Returns user's completed slicing jobs with populated design data
+   */
+  static getSlicingHistory = catchAsync(async (req: Request, res: Response) => {
+    const user = getAuthUser(req);
+    const history = await DesignService.getUserSlicingHistory(user._id.toString());
+
+    sendSuccess(res, 200, "Slicing history fetched successfully", { 
+      results: history.length,
+      history 
+    });
+  });
 }

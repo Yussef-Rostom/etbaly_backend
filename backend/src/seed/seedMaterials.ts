@@ -1,9 +1,11 @@
 /**
  * Seed script for the Material collection.
- * Idempotent — uses upsert on `name` so it's safe to re-run.
+ * Removes all existing materials and inserts fresh data with the new schema.
+ * 
+ * NEW SCHEMA: type and color are separate fields (no more "PLA - White" in name)
  *
  * Run with:
- *   npx ts-node -r tsconfig-paths/register src/jobs/seeds/seedMaterials.ts
+ *   npm run seed:materials
  */
 
 import "dotenv/config";
@@ -14,66 +16,66 @@ import { Material } from "#src/models/Material";
 interface MaterialSeed {
   name: string;
   type: "PLA" | "ABS" | "PETG" | "TPU" | "Resin";
+  color: string;
   currentPricePerGram: number;
-  colorHex: string;
   isActive: boolean;
 }
 
 const materials: MaterialSeed[] = [
   // ── PLA ──────────────────────────────────────────────────────────────────
-  { name: "PLA - White",        type: "PLA",   currentPricePerGram: 0.025, colorHex: "#FFFFFF", isActive: true },
-  { name: "PLA - Black",        type: "PLA",   currentPricePerGram: 0.025, colorHex: "#1A1A1A", isActive: true },
-  { name: "PLA - Red",          type: "PLA",   currentPricePerGram: 0.025, colorHex: "#E53935", isActive: true },
-  { name: "PLA - Blue",         type: "PLA",   currentPricePerGram: 0.025, colorHex: "#1E88E5", isActive: true },
-  { name: "PLA - Green",        type: "PLA",   currentPricePerGram: 0.025, colorHex: "#43A047", isActive: true },
-  { name: "PLA - Yellow",       type: "PLA",   currentPricePerGram: 0.025, colorHex: "#FDD835", isActive: true },
-  { name: "PLA - Orange",       type: "PLA",   currentPricePerGram: 0.025, colorHex: "#FB8C00", isActive: true },
-  { name: "PLA - Purple",       type: "PLA",   currentPricePerGram: 0.025, colorHex: "#8E24AA", isActive: true },
-  { name: "PLA - Pink",         type: "PLA",   currentPricePerGram: 0.025, colorHex: "#F06292", isActive: true },
-  { name: "PLA - Gray",         type: "PLA",   currentPricePerGram: 0.025, colorHex: "#757575", isActive: true },
-  { name: "PLA - Silver",       type: "PLA",   currentPricePerGram: 0.028, colorHex: "#C0C0C0", isActive: true },
-  { name: "PLA - Gold",         type: "PLA",   currentPricePerGram: 0.030, colorHex: "#FFD700", isActive: true },
-  { name: "PLA - Transparent",  type: "PLA",   currentPricePerGram: 0.027, colorHex: "#E0F7FA", isActive: true },
-  { name: "PLA - Brown",        type: "PLA",   currentPricePerGram: 0.025, colorHex: "#6D4C41", isActive: true },
-  { name: "PLA - Cyan",         type: "PLA",   currentPricePerGram: 0.025, colorHex: "#00ACC1", isActive: true },
+  { name: "PLA White Filament", type: "PLA", color: "White", currentPricePerGram: 0.025, isActive: true },
+  { name: "PLA Black Filament", type: "PLA", color: "Black", currentPricePerGram: 0.025, isActive: true },
+  { name: "PLA Red Filament", type: "PLA", color: "Red", currentPricePerGram: 0.027, isActive: true },
+  { name: "PLA Blue Filament", type: "PLA", color: "Blue", currentPricePerGram: 0.027, isActive: true },
+  { name: "PLA Green Filament", type: "PLA", color: "Green", currentPricePerGram: 0.027, isActive: true },
+  { name: "PLA Yellow Filament", type: "PLA", color: "Yellow", currentPricePerGram: 0.027, isActive: true },
+  { name: "PLA Orange Filament", type: "PLA", color: "Orange", currentPricePerGram: 0.027, isActive: true },
+  { name: "PLA Purple Filament", type: "PLA", color: "Purple", currentPricePerGram: 0.028, isActive: true },
+  { name: "PLA Pink Filament", type: "PLA", color: "Pink", currentPricePerGram: 0.028, isActive: true },
+  { name: "PLA Gray Filament", type: "PLA", color: "Gray", currentPricePerGram: 0.026, isActive: true },
+  { name: "PLA Gold Filament", type: "PLA", color: "Gold", currentPricePerGram: 0.035, isActive: true },
+  { name: "PLA Silver Filament", type: "PLA", color: "Silver", currentPricePerGram: 0.035, isActive: true },
+  { name: "PLA Transparent Filament", type: "PLA", color: "Transparent", currentPricePerGram: 0.029, isActive: true },
+  { name: "PLA Brown Filament", type: "PLA", color: "Brown", currentPricePerGram: 0.026, isActive: true },
+  { name: "PLA Cyan Filament", type: "PLA", color: "Cyan", currentPricePerGram: 0.027, isActive: true },
 
   // ── ABS ──────────────────────────────────────────────────────────────────
-  { name: "ABS - White",        type: "ABS",   currentPricePerGram: 0.022, colorHex: "#FFFFFF", isActive: true },
-  { name: "ABS - Black",        type: "ABS",   currentPricePerGram: 0.022, colorHex: "#1A1A1A", isActive: true },
-  { name: "ABS - Red",          type: "ABS",   currentPricePerGram: 0.022, colorHex: "#E53935", isActive: true },
-  { name: "ABS - Blue",         type: "ABS",   currentPricePerGram: 0.022, colorHex: "#1E88E5", isActive: true },
-  { name: "ABS - Green",        type: "ABS",   currentPricePerGram: 0.022, colorHex: "#43A047", isActive: true },
-  { name: "ABS - Yellow",       type: "ABS",   currentPricePerGram: 0.022, colorHex: "#FDD835", isActive: true },
-  { name: "ABS - Gray",         type: "ABS",   currentPricePerGram: 0.022, colorHex: "#757575", isActive: true },
-  { name: "ABS - Orange",       type: "ABS",   currentPricePerGram: 0.022, colorHex: "#FB8C00", isActive: true },
+  { name: "ABS White Filament", type: "ABS", color: "White", currentPricePerGram: 0.030, isActive: true },
+  { name: "ABS Black Filament", type: "ABS", color: "Black", currentPricePerGram: 0.030, isActive: true },
+  { name: "ABS Red Filament", type: "ABS", color: "Red", currentPricePerGram: 0.032, isActive: true },
+  { name: "ABS Blue Filament", type: "ABS", color: "Blue", currentPricePerGram: 0.032, isActive: true },
+  { name: "ABS Green Filament", type: "ABS", color: "Green", currentPricePerGram: 0.032, isActive: true },
+  { name: "ABS Yellow Filament", type: "ABS", color: "Yellow", currentPricePerGram: 0.032, isActive: true },
+  { name: "ABS Gray Filament", type: "ABS", color: "Gray", currentPricePerGram: 0.031, isActive: true },
+  { name: "ABS Orange Filament", type: "ABS", color: "Orange", currentPricePerGram: 0.032, isActive: true },
 
   // ── PETG ─────────────────────────────────────────────────────────────────
-  { name: "PETG - White",       type: "PETG",  currentPricePerGram: 0.030, colorHex: "#FFFFFF", isActive: true },
-  { name: "PETG - Black",       type: "PETG",  currentPricePerGram: 0.030, colorHex: "#1A1A1A", isActive: true },
-  { name: "PETG - Red",         type: "PETG",  currentPricePerGram: 0.030, colorHex: "#E53935", isActive: true },
-  { name: "PETG - Blue",        type: "PETG",  currentPricePerGram: 0.030, colorHex: "#1E88E5", isActive: true },
-  { name: "PETG - Green",       type: "PETG",  currentPricePerGram: 0.030, colorHex: "#43A047", isActive: true },
-  { name: "PETG - Transparent", type: "PETG",  currentPricePerGram: 0.032, colorHex: "#E0F7FA", isActive: true },
-  { name: "PETG - Orange",      type: "PETG",  currentPricePerGram: 0.030, colorHex: "#FB8C00", isActive: true },
-  { name: "PETG - Gray",        type: "PETG",  currentPricePerGram: 0.030, colorHex: "#757575", isActive: true },
+  { name: "PETG White Filament", type: "PETG", color: "White", currentPricePerGram: 0.028, isActive: true },
+  { name: "PETG Black Filament", type: "PETG", color: "Black", currentPricePerGram: 0.028, isActive: true },
+  { name: "PETG Red Filament", type: "PETG", color: "Red", currentPricePerGram: 0.030, isActive: true },
+  { name: "PETG Blue Filament", type: "PETG", color: "Blue", currentPricePerGram: 0.030, isActive: true },
+  { name: "PETG Green Filament", type: "PETG", color: "Green", currentPricePerGram: 0.030, isActive: true },
+  { name: "PETG Transparent Filament", type: "PETG", color: "Transparent", currentPricePerGram: 0.032, isActive: true },
+  { name: "PETG Orange Filament", type: "PETG", color: "Orange", currentPricePerGram: 0.030, isActive: true },
+  { name: "PETG Gray Filament", type: "PETG", color: "Gray", currentPricePerGram: 0.029, isActive: true },
 
   // ── TPU ──────────────────────────────────────────────────────────────────
-  { name: "TPU - White",        type: "TPU",   currentPricePerGram: 0.045, colorHex: "#FFFFFF", isActive: true },
-  { name: "TPU - Black",        type: "TPU",   currentPricePerGram: 0.045, colorHex: "#1A1A1A", isActive: true },
-  { name: "TPU - Red",          type: "TPU",   currentPricePerGram: 0.045, colorHex: "#E53935", isActive: true },
-  { name: "TPU - Blue",         type: "TPU",   currentPricePerGram: 0.045, colorHex: "#1E88E5", isActive: true },
-  { name: "TPU - Green",        type: "TPU",   currentPricePerGram: 0.045, colorHex: "#43A047", isActive: true },
-  { name: "TPU - Yellow",       type: "TPU",   currentPricePerGram: 0.045, colorHex: "#FDD835", isActive: true },
-  { name: "TPU - Transparent",  type: "TPU",   currentPricePerGram: 0.048, colorHex: "#E0F7FA", isActive: true },
+  { name: "TPU White Flexible", type: "TPU", color: "White", currentPricePerGram: 0.045, isActive: true },
+  { name: "TPU Black Flexible", type: "TPU", color: "Black", currentPricePerGram: 0.045, isActive: true },
+  { name: "TPU Red Flexible", type: "TPU", color: "Red", currentPricePerGram: 0.047, isActive: true },
+  { name: "TPU Blue Flexible", type: "TPU", color: "Blue", currentPricePerGram: 0.047, isActive: true },
+  { name: "TPU Green Flexible", type: "TPU", color: "Green", currentPricePerGram: 0.047, isActive: true },
+  { name: "TPU Yellow Flexible", type: "TPU", color: "Yellow", currentPricePerGram: 0.047, isActive: true },
+  { name: "TPU Transparent Flexible", type: "TPU", color: "Transparent", currentPricePerGram: 0.050, isActive: true },
 
   // ── Resin ─────────────────────────────────────────────────────────────────
-  { name: "Resin - White",      type: "Resin", currentPricePerGram: 0.060, colorHex: "#FFFFFF", isActive: true },
-  { name: "Resin - Black",      type: "Resin", currentPricePerGram: 0.060, colorHex: "#1A1A1A", isActive: true },
-  { name: "Resin - Gray",       type: "Resin", currentPricePerGram: 0.060, colorHex: "#757575", isActive: true },
-  { name: "Resin - Transparent",type: "Resin", currentPricePerGram: 0.065, colorHex: "#E0F7FA", isActive: true },
-  { name: "Resin - Beige",      type: "Resin", currentPricePerGram: 0.060, colorHex: "#F5F5DC", isActive: true },
-  { name: "Resin - Blue",       type: "Resin", currentPricePerGram: 0.060, colorHex: "#1E88E5", isActive: true },
-  { name: "Resin - Green",      type: "Resin", currentPricePerGram: 0.060, colorHex: "#43A047", isActive: true },
+  { name: "Standard Resin White", type: "Resin", color: "White", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Black", type: "Resin", color: "Black", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Gray", type: "Resin", color: "Gray", currentPricePerGram: 0.058, isActive: true },
+  { name: "Standard Resin Transparent", type: "Resin", color: "Transparent", currentPricePerGram: 0.065, isActive: true },
+  { name: "Standard Resin Beige", type: "Resin", color: "Beige", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Blue", type: "Resin", color: "Blue", currentPricePerGram: 0.062, isActive: true },
+  { name: "Standard Resin Green", type: "Resin", color: "Green", currentPricePerGram: 0.062, isActive: true },
 ];
 
 async function seed() {
@@ -81,23 +83,26 @@ async function seed() {
   await mongoose.connect(env.MONGODB_URI, { dbName, appName: "Cluster0" });
   console.log(`✅ Connected to MongoDB (${dbName})`);
 
-  let inserted = 0;
-  let updated = 0;
+  // Remove all existing materials
+  const deleteResult = await Material.deleteMany({});
+  console.log(`🗑️  Removed ${deleteResult.deletedCount} existing materials`);
 
-  for (const mat of materials) {
-    const result = await Material.findOneAndUpdate(
-      { name: mat.name },
-      mat,
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
-    );
-    if (result?.createdAt?.getTime() === result?.updatedAt?.getTime()) {
-      inserted++;
-    } else {
-      updated++;
-    }
-  }
+  // Insert new materials
+  const insertedMaterials = await Material.insertMany(materials);
+  console.log(`✅ Inserted ${insertedMaterials.length} new materials`);
 
-  console.log(`🌱 Seed complete — ${inserted} inserted, ${updated} updated (${materials.length} total)`);
+  // Display summary by type
+  const summary = materials.reduce((acc, mat) => {
+    acc[mat.type] = (acc[mat.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log("\n📊 Summary:");
+  Object.entries(summary).forEach(([type, count]) => {
+    console.log(`   ${type}: ${count} colors`);
+  });
+
+  console.log("\n✨ Material seed completed successfully!");
   await mongoose.disconnect();
 }
 

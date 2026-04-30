@@ -210,6 +210,95 @@ Returns a single design by ID. Clients can only access their own designs; admins
 
 ---
 
+### `GET /api/v1/designs/slicing-history`
+
+- **Access:** Authenticated (any role)
+
+Returns the authenticated user's completed slicing jobs with populated design data. This allows users to reorder previous slicing configurations.
+
+**Response 200 — OK**
+```json
+{
+  "success": true,
+  "message": "Slicing history fetched successfully",
+  "data": {
+    "results": 2,
+    "history": [
+      {
+        "jobId": "64f1a2b3c4d5e6f7a8b9c0d5",
+        "design": {
+          "id": "64f1a2b3c4d5e6f7a8b9c0d3",
+          "name": "Custom Bracket",
+          "fileUrl": "https://drive.google.com/uc?id=...",
+          "thumbnailUrl": "https://drive.google.com/uc?id=...",
+          "isPrintable": true,
+          "supportedMaterials": ["PLA", "ABS"],
+          "createdAt": "2026-01-01T00:00:00.000Z"
+        },
+        "material": "PLA",
+        "color": "Red",
+        "preset": "normal",
+        "scale": 100,
+        "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
+        "weight": 45.5,
+        "dimensions": {
+          "width": 100,
+          "height": 50,
+          "depth": 75
+        },
+        "printTime": 180,
+        "calculatedPrice": 31.14,
+        "copiedFromJobId": null,
+        "createdAt": "2026-04-20T10:30:00.000Z",
+        "finishedAt": "2026-04-20T10:35:00.000Z"
+      },
+      {
+        "jobId": "64f1a2b3c4d5e6f7a8b9c0d6",
+        "design": {
+          "id": "64f1a2b3c4d5e6f7a8b9c0d4",
+          "name": "Phone Stand",
+          "fileUrl": "https://drive.google.com/uc?id=...",
+          "thumbnailUrl": null,
+          "isPrintable": true,
+          "supportedMaterials": ["PLA"],
+          "createdAt": "2026-01-15T00:00:00.000Z"
+        },
+        "material": "PLA",
+        "color": "Blue",
+        "preset": "heavy",
+        "scale": 150,
+        "gcodeUrl": "https://storage.example.com/gcode/phone-stand.gcode",
+        "weight": 68.2,
+        "dimensions": {
+          "width": 150,
+          "height": 75,
+          "depth": 112
+        },
+        "printTime": 270,
+        "calculatedPrice": 46.71,
+        "copiedFromJobId": "64f1a2b3c4d5e6f7a8b9c0d5",
+        "createdAt": "2026-04-25T14:20:00.000Z",
+        "finishedAt": "2026-04-25T14:20:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Response 401 — Unauthenticated**
+```json
+{ "success": false, "message": "You are not logged in. Please log in to get access." }
+```
+
+**Notes:**
+- Only returns completed slicing jobs (status: "Completed")
+- Results are sorted by creation date (most recent first)
+- Design data is populated for easy reordering
+- `copiedFromJobId` indicates if results were copied from another job
+- Users can use this data to quickly reorder with the same parameters
+
+---
+
 ## Admin Endpoints
 
 Base path: `/api/v1/admin/designs`

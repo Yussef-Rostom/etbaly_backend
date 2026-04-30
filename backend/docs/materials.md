@@ -15,22 +15,23 @@ The materials module manages 3D printing materials and their properties. It prov
 **Key Features:**
 - Material catalog with pricing information
 - Active/inactive material status management
-- Material validation for slicing operations
+- Material validation for slicing operations (type + color combination)
 - Admin CRUD operations for materials
-- Color hex codes for UI display
+- Color names for material identification
 - Price per gram tracking for cost calculations
+- Unique constraint on material type + color combination
 
 **Workflow:**
 ```
 Admin Creates Material (POST /admin/materials)
   ↓
-Material Available for Slicing
+Material Available for Slicing (unique type + color)
   ↓
 Users Query Available Materials (GET /materials)
   ↓
-Users Select Material for Slicing Job
+Users Select Material Type AND Color for Slicing Job
   ↓
-System Validates Material and Calculates Price
+System Validates Material (type + color) and Calculates Price
 ```
 
 **Material Types:**
@@ -39,6 +40,8 @@ System Validates Material and Calculates Price
 - **PETG** - Polyethylene Terephthalate Glycol (durable, flexible)
 - **TPU** - Thermoplastic Polyurethane (flexible, rubber-like)
 - **Resin** - Photopolymer resin (high detail, smooth finish)
+
+**Important:** Each material is uniquely identified by its **type + color** combination. You cannot have two materials with the same type and color (e.g., two "PLA White" materials).
 
 ---
 
@@ -193,19 +196,20 @@ Creates a new material in the system. The material type is automatically convert
 
 - **`name`** (*string*, Required)
   - *Validation:* Non-empty string, trimmed
-  - *Description:* Display name for the material (e.g., "PLA Filament", "Premium ABS")
+  - *Description:* Descriptive display name for the material (e.g., "PLA White Filament", "Premium ABS Black")
 
 - **`type`** (*string*, Required)
   - *Validation:* Must be one of: `"PLA"`, `"ABS"`, `"Resin"`, `"TPU"`, `"PETG"`
   - *Description:* Material type identifier (automatically converted to uppercase)
 
+- **`color`** (*string*, Required)
+  - *Validation:* Non-empty string, trimmed
+  - *Description:* Color name (e.g., "White", "Black", "Red", "Blue", "Gold", "Transparent")
+  - *Note:* The combination of `type` + `color` must be unique
+
 - **`currentPricePerGram`** (*number*, Required)
   - *Validation:* Must be >= 0
   - *Description:* Current price per gram in the system's currency
-
-- **`color`** (*string*, Optional)
-  - *Validation:* String, trimmed
-  - *Description:* Color name for UI display (e.g., "White", "Black", "Red", "Blue")
 
 - **`isActive`** (*boolean*, Optional)
   - *Validation:* Boolean
@@ -221,9 +225,9 @@ Creates a new material in the system. The material type is automatically convert
     "material": {
       "id": "64f1a2b3c4d5e6f7a8b9c0d4",
       "type": "TPU",
-      "name": "TPU Flexible Filament",
-      "pricePerGram": 0.035,
+      "name": "TPU Pink Flexible",
       "color": "Pink",
+      "pricePerGram": 0.035,
       "isActive": true
     }
   }
@@ -237,9 +241,18 @@ Creates a new material in the system. The material type is automatically convert
   "message": "Validation failed",
   "data": {
     "errors": [
-      { "field": "type", "message": "Material type must be one of: PLA, ABS, Resin, TPU, PETG" }
+      { "field": "type", "message": "Material type must be one of: PLA, ABS, Resin, TPU, PETG" },
+      { "field": "color", "message": "color is required" }
     ]
   }
+}
+```
+
+**Response 400 — Duplicate Material**
+```json
+{
+  "success": false,
+  "message": "Material with type 'PLA' and color 'White' already exists"
 }
 ```
 
@@ -416,16 +429,21 @@ Represents a 3D printing material with pricing and availability information.
 **Fields:**
 
 - **`_id`** — MongoDB ObjectId (used as `id` in all responses)
-- **`name`** — String (display name, e.g., "PLA Filament")
+- **`name`** — String (descriptive display name, e.g., "PLA White Filament", "Premium ABS Black")
 - **`type`** — Enum: `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"` (stored in uppercase)
+- **`color`** — String (required, color name e.g., "White", "Black", "Red", "Gold", "Transparent")
 - **`currentPricePerGram`** — Number (price per gram, must be >= 0)
-- **`color`** — Optional string (color name for UI display, e.g., "White", "Black", "Red")
 - **`isActive`** — Boolean (whether material is available for use, default: `true`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 **Indexes:**
 - Single index on `isActive` for efficient filtering of active materials
-- Unique index on `name` to prevent duplicate material names
+- Single index on `type` for efficient material type queries
+- Single index on `color` for efficient color queries
+- **Compound unique index on `type + color`** to prevent duplicate material combinations
+
+**Unique Constraint:**
+The combination of `type` and `color` must be unique. You cannot create two materials with the same type and color (e.g., two "PLA White" materials).
 
 ---
 
@@ -433,9 +451,16 @@ Represents a 3D printing material with pricing and availability information.
 
 ### Slicing Module
 The slicing module uses the materials module to:
-- Validate material selection before creating slicing jobs
+- Validate material type AND color selection before creating slicing jobs
 - Calculate pricing based on material cost per gram
 - Display available materials to users
+- Match slicing jobs by material type and color combination
+
+**Required Parameters for Slicing:**
+- `material`: Material type (e.g., "PLA", "ABS")
+- `color`: Color name (e.g., "White", "Black", "Gold")
+
+Both parameters are required and must match an active material in the database.
 
 ### Pricing Calculation
 Material pricing is used in the slicing workflow:
@@ -485,10 +510,10 @@ POST /api/v1/admin/materials
 Authorization: Bearer <admin-token>
 
 {
-  "name": "Premium TPU Flexible",
+  "name": "TPU Pink Flexible",
   "type": "TPU",
-  "currentPricePerGram": 0.040,
   "color": "Pink",
+  "currentPricePerGram": 0.040,
   "isActive": true
 }
 
@@ -517,8 +542,11 @@ Authorization: Bearer <admin-token>
 
 ## Best Practices
 
-1. **Soft Delete First**: Use `isActive: false` instead of deleting materials that are referenced in historical slicing jobs
-2. **Price Updates**: Update `currentPricePerGram` carefully as it affects all new slicing job calculations
-3. **Material Types**: Stick to the predefined material types (PLA, ABS, PETG, TPU, Resin) for consistency
-4. **Color Names**: Use standard color names (e.g., "White", "Black", "Red", "Blue") for proper UI rendering
-5. **Validation**: Always validate material availability before creating slicing jobs
+1. **Unique Type + Color**: Each material must have a unique combination of type and color. You cannot create duplicate combinations.
+2. **Color Names**: Use standard color names (e.g., "White", "Black", "Red", "Blue", "Gold", "Silver", "Transparent") for consistency
+3. **Soft Delete First**: Use `isActive: false` instead of deleting materials that are referenced in historical slicing jobs
+4. **Price Updates**: Update `currentPricePerGram` carefully as it affects all new slicing job calculations
+5. **Material Types**: Stick to the predefined material types (PLA, ABS, PETG, TPU, Resin) for consistency
+6. **Descriptive Names**: Use descriptive names that include both type and color (e.g., "PLA White Filament", "ABS Black Premium")
+7. **Validation**: Always validate material type AND color availability before creating slicing jobs
+8. **Seeding**: Use the seed script (`npm run seed:materials`) to populate the database with standard materials

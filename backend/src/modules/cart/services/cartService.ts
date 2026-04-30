@@ -1,13 +1,13 @@
-import { Types, Schema } from "mongoose";
+import { Types } from "mongoose";
 import { Cart, ICart } from "#src/models/Cart";
 import { Product } from "#src/models/Product";
 import { Design } from "#src/models/Design";
-import { Material } from "#src/models/Material";
 import { SlicingJob } from "#src/models/SlicingJob";
 import { IOrder } from "#src/models/Order";
 import { User } from "#src/models/User";
 import { AppError } from "#src/utils/AppError";
 import { OrderService } from "#src/modules/order/services/orderService";
+import { MaterialService } from "#src/modules/material/services/materialService";
 import {
   AddCartItemInput,
   UpdateCartItemInput,
@@ -18,330 +18,462 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class CartService {
   /**
-   * Resolve unit price using material type string instead of materialId.
-   * Looks up material by type (e.g. "PLA") from printingProperties.material.
+   * Validates that a cart belongs to the specified user
+   * @throws AppError if cart doesn't belong to user
    */
-  private static async resolveUnitPrice(
-    itemType: "Product" | "Design",
-    itemRefId: string,
-    materialType: string,
-  ): Promise<number> {
-    const material = await Material.findOne({
-      type: materialType.toUpperCase() as any,
-      isActive: true,
-    });
-    if (!material) {
-      throw new AppError(`Material type "${materialType}" not found or not currently active.`, 404);
+  private static validateCartOwnership(cart: ICart, userId: string): void {
+    if (cart.userId.toString() !== userId) {
+      throw new AppError("You do not have permission to access this cart.", 403);
     }
-
-    if (itemType === "Product") {
-      const product = await Product.findOne({ _id: itemRefId, isActive: true });
-      if (!product) {
-        throw new AppError("Product not found or not currently active.", 404);
-      }
-      return product.currentBasePrice;
-    }
-
-    // Design — use calculatedPrice from the latest completed SlicingJob
-    const design = await Design.findById(itemRefId);
-    if (!design) {
-      throw new AppError("Design not found.", 404);
-    }
-    const slicingJob = await SlicingJob.findOne(
-      { designId: itemRefId, status: "Completed" },
-      { calculatedPrice: 1 },
-    ).sort({ finishedAt: -1 });
-    if (!slicingJob?.calculatedPrice) {
-      throw new AppError(
-        "Design has not been sliced yet. Please wait for slicing to complete before adding to cart.",
-        400,
-      );
-    }
-    return slicingJob.calculatedPrice;
   }
 
   /**
-   * Batch resolve unit prices to avoid N+1 queries.
+   * Recalculates cart pricing summary based on current items
    */
-  private static async batchResolveUnitPrices(
-    items: Array<{
-      itemType: "Product" | "Design";
-      itemRefId: Types.ObjectId;
-      materialType: string;
-    }>,
-  ): Promise<Map<string, number>> {
-    const priceMap = new Map<string, number>();
-
-    const productItems = items.filter((i) => i.itemType === "Product");
-    const designItems  = items.filter((i) => i.itemType === "Design");
-
-    // Batch fetch all unique material types
-    const uniqueTypes = [...new Set(items.map((i) => i.materialType.toUpperCase()))];
-    const materials = await Material.find({ type: { $in: uniqueTypes as any[] }, isActive: true });
-    const materialPriceMap = new Map<string, number>(materials.map((m) => [m.type as string, m.currentPricePerGram]));
-
-    for (const item of items) {
-      if (!materialPriceMap.has(item.materialType.toUpperCase())) {
-        throw new AppError(
-          `Material type "${item.materialType}" not found or not currently active.`,
-          404,
-        );
-      }
-    }
-
-    if (productItems.length > 0) {
-      const productIds = productItems.map((i) => i.itemRefId);
-      const products = await Product.find({ _id: { $in: productIds }, isActive: true });
-      const productPriceMap = new Map(products.map((p) => [p._id.toString(), p.currentBasePrice]));
-
-      for (const item of productItems) {
-        const price = productPriceMap.get(item.itemRefId.toString());
-        if (price === undefined) {
-          throw new AppError(`Product ${item.itemRefId} not found or not currently active.`, 404);
-        }
-        priceMap.set(item.itemRefId.toString(), price);
-      }
-    }
-
-    if (designItems.length > 0) {
-      const designIds = designItems.map((i) => i.itemRefId);
-
-      // Verify all designs exist
-      const designs = await Design.find({ _id: { $in: designIds } }, { _id: 1 });
-      const foundDesignIds = new Set(designs.map((d) => d._id.toString()));
-      for (const item of designItems) {
-        if (!foundDesignIds.has(item.itemRefId.toString())) {
-          throw new AppError(`Design ${item.itemRefId} not found.`, 404);
-        }
-      }
-
-      // Fetch latest completed SlicingJob per design
-      const slicingJobs = await SlicingJob.find(
-        { designId: { $in: designIds }, status: "Completed" },
-        { designId: 1, calculatedPrice: 1, finishedAt: 1 },
-      ).sort({ finishedAt: -1 });
-
-      // Keep only the most recent completed job per designId
-      const slicingPriceMap = new Map<string, number>();
-      for (const job of slicingJobs) {
-        const key = job.designId.toString();
-        if (!slicingPriceMap.has(key)) {
-          slicingPriceMap.set(key, job.calculatedPrice!);
-        }
-      }
-
-      for (const item of designItems) {
-        const price = slicingPriceMap.get(item.itemRefId.toString());
-        if (price === undefined) {
-          throw new AppError(
-            `Design ${item.itemRefId} has not been sliced yet. Please wait for slicing to complete.`,
-            400,
-          );
-        }
-        priceMap.set(item.itemRefId.toString(), price);
-      }
-    }
-
-    return priceMap;
-  }
-
   private static recalculatePricing(cart: ICart): void {
-    const subtotal = cart.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-    cart.pricingSummary.subtotal = subtotal;
-    cart.pricingSummary.taxAmount = 0;
-    cart.pricingSummary.shippingCost = 0;
-    cart.pricingSummary.discountAmount = 0;
-    cart.pricingSummary.total = subtotal;
-  }
-
-  static async getCart(userId: string): Promise<ICart> {
-    const cart = await Cart.findOne({ userId });
-    if (!cart) {
-      return {
-        userId: new Types.ObjectId(userId),
-        items: [],
-        pricingSummary: { subtotal: 0, taxAmount: 0, shippingCost: 0, discountAmount: 0, total: 0 },
-      } as unknown as ICart;
-    }
-    if (cart.userId.toString() !== userId) {
-      throw new AppError("Forbidden: You do not own this cart.", 403);
-    }
-
-    // Back-fill thumbnailUrl for items that were saved before this field existed
-    let dirty = false;
-    for (const item of cart.items) {
-      if (!item.thumbnailUrl) {
-        if (item.itemType === "Design") {
-          const design = await Design.findById(item.itemRefId, { thumbnailUrl: 1 });
-          if (design?.thumbnailUrl) {
-            item.thumbnailUrl = design.thumbnailUrl;
-            dirty = true;
-          }
-        } else {
-          const product = await Product.findById(item.itemRefId, { images: 1 });
-          if (product?.images?.[0]) {
-            item.thumbnailUrl = product.images[0];
-            dirty = true;
-          }
-        }
-      }
-    }
-    if (dirty) await cart.save();
-
-    return cart;
-  }
-
-  static async addItem(userId: string, dto: AddCartItemInput): Promise<ICart> {
-    const unitPrice = await CartService.resolveUnitPrice(
-      dto.itemType,
-      dto.itemRefId,
-      dto.printingProperties.material,
+    const subtotal = cart.items.reduce(
+      (sum, item) => sum + item.unitPrice * item.quantity,
+      0
     );
 
-    // Resolve thumbnail — snapshot at add-time so cart is self-contained
-    let thumbnailUrl: string | undefined;
-    if (dto.itemType === "Design") {
-      const design = await Design.findById(dto.itemRefId, { thumbnailUrl: 1 });
-      thumbnailUrl = design?.thumbnailUrl;
-    } else {
-      const product = await Product.findById(dto.itemRefId, { images: 1 });
-      thumbnailUrl = product?.images?.[0];
+    cart.pricingSummary = {
+      subtotal,
+      taxAmount: 0, // TODO: Implement tax calculation
+      shippingCost: 0, // TODO: Implement shipping calculation
+      discountAmount: 0, // TODO: Implement discount logic
+      total: subtotal,
+    };
+  }
+
+  /**
+   * Updates cart expiration date to 30 days from now
+   */
+  private static updateExpiration(cart: ICart): void {
+    cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+  }
+
+  /**
+   * Resolves thumbnail URL for a cart item
+   */
+  private static async resolveThumbnailUrl(
+    itemType: "Product" | "Design",
+    itemRefId: string
+  ): Promise<string | undefined> {
+    if (itemType === "Design") {
+      const design = await Design.findById(itemRefId, { thumbnailUrl: 1 });
+      return design?.thumbnailUrl;
+    }
+    
+    const product = await Product.findById(itemRefId, { images: 1 });
+    return product?.images?.[0];
+  }
+
+  /**
+   * Back-fills thumbnail URLs for cart items that don't have them
+   */
+  private static async backfillThumbnails(cart: ICart): Promise<boolean> {
+    let hasChanges = false;
+
+    for (const item of cart.items) {
+      if (!item.thumbnailUrl) {
+        item.thumbnailUrl = await this.resolveThumbnailUrl(
+          item.itemType,
+          item.itemRefId.toString()
+        );
+        hasChanges = hasChanges || !!item.thumbnailUrl;
+      }
     }
 
+    return hasChanges;
+  }
+
+  /**
+   * Resolves item information from a slicing job
+   */
+  private static async resolveFromSlicingJob(slicingJobId: string) {
+    const slicingJob = await SlicingJob.findById(slicingJobId);
+      
+    if (!slicingJob) {
+      throw new AppError("Slicing job not found.", 404);
+    }
+
+    if (slicingJob.status !== "Completed") {
+      throw new AppError("Slicing job is not completed yet.", 400);
+    }
+
+    if (!slicingJob.calculatedPrice) {
+      throw new AppError("Slicing job does not have a calculated price.", 400);
+    }
+
+    // Validate material + color combination exists
+    if (slicingJob.material && slicingJob.color) {
+      await MaterialService.validateMaterial(slicingJob.material, slicingJob.color);
+    }
+
+    return {
+      itemType: "Design" as const,
+      itemRefId: slicingJob.designId.toString(),
+      price: slicingJob.calculatedPrice,
+      slicingJobId: slicingJob._id,
+      printingProperties: {
+        material: slicingJob.material,
+        color: slicingJob.color,
+        scale: slicingJob.scale,
+        preset: slicingJob.preset,
+      },
+    };
+  }
+
+  /**
+   * Finds a matching slicing job for design with given parameters
+   */
+  private static async findMatchingSlicingJob(
+    designId: string,
+    material: string,
+    color: string,
+    scale?: number,
+    preset?: string
+  ) {
+    const query: any = {
+      designId,
+      status: "Completed",
+      material: material.toUpperCase(),
+      color,
+    };
+
+    // Match scale - default is 100 or null
+    query.scale = (scale !== undefined && scale !== null && scale !== 100)
+      ? scale
+      : { $in: [100, null] };
+
+    // Match preset - default is "normal"
+    query.preset = preset ? preset : { $in: ["normal", null] };
+
+    const slicingJob = await SlicingJob.findOne(query).sort({ finishedAt: -1 });
+
+    if (!slicingJob?.calculatedPrice) {
+      const params = [
+        `material: ${material}`,
+        `color: ${color}`,
+        scale && scale !== 100 ? `scale: ${scale}%` : null,
+        preset ? `preset: ${preset}` : null,
+      ].filter(Boolean).join(", ");
+      
+      throw new AppError(
+        `This design must be sliced with these parameters (${params}) before adding to cart. Please complete slicing first.`,
+        400
+      );
+    }
+
+    return {
+      price: slicingJob.calculatedPrice,
+      slicingJobId: slicingJob._id,
+    };
+  }
+
+  /**
+   * Resolves item information from manual parameters
+   */
+  private static async resolveFromManualParams(dto: AddCartItemInput) {
+    if (!dto.itemType || !dto.itemRefId) {
+      throw new AppError("itemType and itemRefId are required when slicingJobId is not provided.", 400);
+    }
+
+    if (!dto.printingProperties?.material || !dto.printingProperties?.color) {
+      throw new AppError("Material and color are required when slicingJobId is not provided.", 400);
+    }
+
+    const { itemType, itemRefId, printingProperties } = dto;
+    // Type narrowing: we've validated these exist above
+    const material = printingProperties.material!;
+    const color = printingProperties.color!;
+
+    // For Design items, search for matching slicing job
+    if (itemType === "Design") {
+      await MaterialService.validateMaterial(material, color);
+
+      const { price, slicingJobId } = await this.findMatchingSlicingJob(
+        itemRefId,
+        material,
+        color,
+        printingProperties.scale,
+        printingProperties.preset
+      );
+
+      return {
+        itemType,
+        itemRefId,
+        price,
+        slicingJobId,
+        printingProperties,
+      };
+    }
+
+    // For Product items, get price from product base price
+    const product = await Product.findOne({ _id: itemRefId, isActive: true });
+    if (!product) {
+      throw new AppError("Product not found or is no longer available.", 404);
+    }
+
+    // Still validate material+color combination exists
+    await MaterialService.validateMaterial(material, color);
+
+    return {
+      itemType,
+      itemRefId,
+      price: product.currentBasePrice,
+      slicingJobId: undefined,
+      printingProperties,
+    };
+  }
+
+  /**
+   * Checks if an item with the same configuration exists in cart
+   */
+  private static findExistingItem(
+    cart: ICart,
+    itemRefId: string,
+    printingProperties: any
+  ) {
+    return cart.items.find((item) => {
+      const sameRef = item.itemRefId.equals(new Types.ObjectId(itemRefId));
+      const sameConfig =
+        JSON.stringify(item.printingProperties) === JSON.stringify(printingProperties);
+      return sameRef && sameConfig;
+    });
+  }
+
+  /**
+   * Creates or retrieves a cart for the user
+   */
+  private static async getOrCreateCart(userId: string): Promise<ICart> {
     let cart = await Cart.findOne({ userId });
+
     if (!cart) {
       cart = new Cart({
         userId,
         items: [],
-        pricingSummary: { subtotal: 0, taxAmount: 0, shippingCost: 0, discountAmount: 0, total: 0 },
+        pricingSummary: {
+          subtotal: 0,
+          taxAmount: 0,
+          shippingCost: 0,
+          discountAmount: 0,
+          total: 0,
+        },
       });
-    } else if (cart.userId.toString() !== userId) {
-      throw new AppError("Forbidden: You do not own this cart.", 403);
+    } else {
+      this.validateCartOwnership(cart, userId);
     }
 
-    const existingItem = cart.items.find((item) => {
-      const sameRef = item.itemRefId.equals(new Types.ObjectId(dto.itemRefId));
-      const samePrintingProperties =
-        JSON.stringify(item.printingProperties) === JSON.stringify(dto.printingProperties);
-      return sameRef && samePrintingProperties;
-    });
+    return cart;
+  }
+
+  /**
+   * Gets or creates a cart for the specified user
+   */
+  static async getCart(userId: string): Promise<ICart> {
+    let cart = await Cart.findOne({ userId });
+
+    if (!cart) {
+      // Return empty cart structure (not saved to DB yet)
+      return {
+        userId: new Types.ObjectId(userId),
+        items: [],
+        pricingSummary: {
+          subtotal: 0,
+          taxAmount: 0,
+          shippingCost: 0,
+          discountAmount: 0,
+          total: 0,
+        },
+      } as unknown as ICart;
+    }
+
+    this.validateCartOwnership(cart, userId);
+
+    // Back-fill thumbnails if needed
+    const hasChanges = await this.backfillThumbnails(cart);
+    if (hasChanges) {
+      await cart.save();
+    }
+
+    return cart;
+  }
+
+  /**
+   * Adds an item to the user's cart
+   * If item with same configuration exists, increments quantity
+   * Supports two modes:
+   * 1. Direct slicingJobId - gets all info from the slicing job (itemType, itemRefId, printingProperties, price)
+   * 2. Manual parameters - searches for matching slicing job (requires itemType, itemRefId, printingProperties)
+   */
+  static async addItem(userId: string, dto: AddCartItemInput): Promise<ICart> {
+    // Resolve item information based on mode
+    const resolved = dto.slicingJobId
+      ? await this.resolveFromSlicingJob(dto.slicingJobId)
+      : await this.resolveFromManualParams(dto);
+
+    const { itemType, itemRefId, price, slicingJobId, printingProperties } = resolved;
+
+    // Get thumbnail
+    const thumbnailUrl = await this.resolveThumbnailUrl(itemType, itemRefId);
+
+    // Get or create cart
+    const cart = await this.getOrCreateCart(userId);
+
+    // Check if item with same configuration already exists
+    const existingItem = this.findExistingItem(cart, itemRefId, printingProperties);
 
     if (existingItem) {
+      // Update existing item
       existingItem.quantity += dto.quantity;
-      existingItem.unitPrice = unitPrice;
+      existingItem.unitPrice = price; // Lock price at time of adding
+      if (slicingJobId) {
+        existingItem.slicingJobId = slicingJobId;
+      }
     } else {
+      // Add new item
       cart.items.push({
-        itemType: dto.itemType,
-        itemRefId: new Types.ObjectId(dto.itemRefId),
+        itemType,
+        itemRefId: new Types.ObjectId(itemRefId),
         quantity: dto.quantity,
-        unitPrice,
+        unitPrice: price,
         thumbnailUrl,
-        printingProperties: dto.printingProperties,
+        printingProperties,
+        slicingJobId,
       } as any);
     }
 
-    CartService.recalculatePricing(cart);
-    cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+    this.recalculatePricing(cart);
+    this.updateExpiration(cart);
     await cart.save();
+
     return cart;
   }
 
-  static async updateItem(userId: string, cartItemId: string, dto: UpdateCartItemInput): Promise<ICart> {
+  /**
+   * Updates the quantity of a cart item
+   */
+  static async updateItem(
+    userId: string,
+    cartItemId: string,
+    dto: UpdateCartItemInput
+  ): Promise<ICart> {
     const cart = await Cart.findOne({ userId });
-    if (!cart) throw new AppError("Cart not found.", 404);
-    if (cart.userId.toString() !== userId) throw new AppError("Forbidden: You do not own this cart.", 403);
+    if (!cart) {
+      throw new AppError("Cart not found.", 404);
+    }
+
+    this.validateCartOwnership(cart, userId);
 
     const item = cart.items.find((i) => i._id.equals(new Types.ObjectId(cartItemId)));
-    if (!item) throw new AppError("Cart item not found.", 404);
+    if (!item) {
+      throw new AppError("Cart item not found.", 404);
+    }
 
     item.quantity = dto.quantity;
 
-    CartService.recalculatePricing(cart);
-    cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+    this.recalculatePricing(cart);
+    this.updateExpiration(cart);
     await cart.save();
+
     return cart;
   }
 
+  /**
+   * Removes an item from the cart
+   */
   static async removeItem(userId: string, cartItemId: string): Promise<ICart> {
     const cart = await Cart.findOne({ userId });
-    if (!cart) throw new AppError("Cart not found.", 404);
-    if (cart.userId.toString() !== userId) throw new AppError("Forbidden: You do not own this cart.", 403);
+    if (!cart) {
+      throw new AppError("Cart not found.", 404);
+    }
 
-    const itemIndex = cart.items.findIndex((i) => i._id.equals(new Types.ObjectId(cartItemId)));
-    if (itemIndex === -1) throw new AppError("Cart item not found.", 404);
+    this.validateCartOwnership(cart, userId);
+
+    const itemIndex = cart.items.findIndex((i) =>
+      i._id.equals(new Types.ObjectId(cartItemId))
+    );
+
+    if (itemIndex === -1) {
+      throw new AppError("Cart item not found.", 404);
+    }
 
     cart.items.splice(itemIndex, 1);
 
-    CartService.recalculatePricing(cart);
-    cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+    this.recalculatePricing(cart);
+    this.updateExpiration(cart);
     await cart.save();
+
     return cart;
   }
 
+  /**
+   * Clears all items from the cart
+   */
   static async clearCart(userId: string): Promise<void> {
     const cart = await Cart.findOne({ userId });
-    if (!cart) return;
-    if (cart.userId.toString() !== userId) throw new AppError("Forbidden: You do not own this cart.", 403);
+    if (!cart) {
+      return; // Cart doesn't exist, nothing to clear
+    }
+
+    this.validateCartOwnership(cart, userId);
 
     cart.items = [];
-    CartService.recalculatePricing(cart);
-    cart.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+    this.recalculatePricing(cart);
+    this.updateExpiration(cart);
     await cart.save();
   }
 
+  /**
+   * Converts cart to order and clears the cart
+   */
   static async checkout(userId: string, dto: CheckoutInput): Promise<IOrder> {
-    const cart = await CartService.getCart(userId);
+    const cart = await this.getCart(userId);
 
-    if (!('_id' in cart) || cart.items.length === 0) {
+    // Validate cart has items
+    if (!("_id" in cart) || cart.items.length === 0) {
       throw new AppError("Cannot checkout with an empty cart.", 400);
     }
 
+    // Validate user exists
     const user = await User.findById(userId);
-    if (!user) throw new AppError("User not found.", 404);
-
-    const shippingAddress = dto.shippingAddress;
-
-    // Batch validate and recalculate prices
-    const itemsForPriceResolution = cart.items.map((item) => {
-      const materialType = item.printingProperties?.material;
-      if (!materialType) {
-        throw new AppError(`Cart item ${item._id} is missing required printingProperties.material`, 400);
-      }
-      return { itemType: item.itemType, itemRefId: item.itemRefId, materialType };
-    });
-
-    const priceMap = await CartService.batchResolveUnitPrices(itemsForPriceResolution);
-
-    for (const item of cart.items) {
-      const priceKey = item.itemRefId.toString();
-
-      const currentPrice = priceMap.get(priceKey);
-      if (currentPrice === undefined) {
-        throw new AppError(`Unable to resolve price for item ${item.itemRefId}.`, 500);
-      }
-      item.unitPrice = currentPrice;
+    if (!user) {
+      throw new AppError("User not found.", 404);
     }
 
-    CartService.recalculatePricing(cart);
+    // Validate all items have required material specification
+    for (const item of cart.items) {
+      if (!item.printingProperties?.material) {
+        throw new AppError(
+          `Cart item is missing required material specification.`,
+          400
+        );
+      }
+    }
 
+    // Prepare order items using the prices already in the cart
     const orderItems = cart.items.map((item) => ({
       itemType: item.itemType,
-      itemRefId: item.itemRefId as unknown as Schema.Types.ObjectId,
+      itemRefId: item.itemRefId as any,
       quantity: item.quantity,
       price: item.unitPrice * item.quantity,
       printingProperties: item.printingProperties,
       status: "Queued" as const,
     }));
 
+    // Create order
     const order = await OrderService.createOrder({
       userId,
       items: orderItems,
-      shippingAddressSnapshot: shippingAddress,
+      shippingAddressSnapshot: dto.shippingAddress,
       paymentMethod: dto.paymentMethod,
       pricingSummary: cart.pricingSummary,
     });
 
+    // Clear cart after successful order creation
     await Cart.deleteOne({ userId });
+
     return order;
   }
 }

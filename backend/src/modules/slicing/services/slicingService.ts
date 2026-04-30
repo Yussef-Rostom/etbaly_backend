@@ -33,6 +33,7 @@ export class SlicingService {
    * 
    * @param designId - The design ID
    * @param material - Material type (normalized to uppercase)
+   * @param color - Color (optional)
    * @param preset - Slicing preset
    * @param scale - Scale percentage
    * @returns Existing completed SlicingJob or null
@@ -40,6 +41,7 @@ export class SlicingService {
   static async findExistingCompletedJob(
     designId: mongoose.Types.ObjectId,
     material?: string,
+    color?: string,
     preset?: string,
     scale?: number
   ): Promise<ISlicingJob | null> {
@@ -55,11 +57,18 @@ export class SlicingService {
       query.material = { $in: [null, "PLA"] }; // Default material
     }
 
+    // Match color if provided
+    if (color) {
+      query.color = color;
+    } else {
+      query.color = { $in: [null] };
+    }
+
     // Handle preset (can be null for default)
     if (preset) {
       query.preset = preset;
     } else {
-      query.preset = null;
+      query.preset = { $in: ["normal", null] };
     }
 
     // Handle scale (can be null/undefined for default 100%)

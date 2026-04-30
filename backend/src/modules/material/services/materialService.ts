@@ -3,26 +3,48 @@ import { AppError } from "#src/utils/AppError";
 
 export class MaterialService {
   /**
-   * Validates that a material exists and is active
+   * Validates that a material with specific type and color exists and is active
    * 
-   * @param material - Material type to validate (case-insensitive)
+   * @param materialType - Material type to validate (case-insensitive)
+   * @param color - Color to validate (required)
    * @returns The validated material document
    * @throws AppError if material is not found or inactive
    */
-  static async validateMaterial(material: string): Promise<IMaterial> {
-    const normalizedMaterial = material.toUpperCase();
+  static async validateMaterial(materialType: string, color: string): Promise<IMaterial> {
+    const normalizedMaterial = materialType.toUpperCase();
     
     const existingMaterial = await Material.findOne({
       type: normalizedMaterial,
+      color: color,
       isActive: true,
     });
 
     if (!existingMaterial) {
-      const availableMaterials = await this.getAvailableMaterials();
-      const materialList = availableMaterials.map(m => m.type).join(", ");
+      // Get available colors for this material type
+      const availableColors = await Material.find({
+        type: normalizedMaterial,
+        isActive: true,
+      }).select('color');
+      
+      if (availableColors.length === 0) {
+        // Material type doesn't exist at all
+        const availableMaterials = await this.getAvailableMaterials();
+        const uniqueTypes = [...new Set(availableMaterials.map(m => m.type))];
+        const materialList = uniqueTypes.join(", ");
+        
+        throw new AppError(
+          `Material type "${materialType}" is not available. Available materials: ${materialList}`,
+          400
+        );
+      }
+      
+      // Material type exists but color is wrong
+      const colorList = availableColors
+        .map(m => m.color)
+        .join(", ");
       
       throw new AppError(
-        `Material "${material}" is not available. Available materials: ${materialList}`,
+        `Color "${color}" is not available for material "${materialType}". Available colors: ${colorList}`,
         400
       );
     }
@@ -78,7 +100,7 @@ export class MaterialService {
     name: string;
     type: string;
     currentPricePerGram: number;
-    color?: string;
+    color: string;
     isActive?: boolean;
   }): Promise<IMaterial> {
     const material = new Material({

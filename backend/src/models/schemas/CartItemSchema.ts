@@ -12,6 +12,7 @@ export interface ICartItem {
   unitPrice: number;
   thumbnailUrl?: string;
   printingProperties?: IPrintingProperties;
+  slicingJobId?: Types.ObjectId; // Reference to the SlicingJob used for pricing
 }
 
 export const cartItemSchema = new Schema<ICartItem>(
@@ -43,6 +44,11 @@ export const cartItemSchema = new Schema<ICartItem>(
     },
     printingProperties: {
       type: printingPropertiesSchema,
+    },
+    slicingJobId: {
+      type: Schema.Types.ObjectId,
+      ref: "SlicingJob",
+      required: false,
     },
   },
   { _id: true },

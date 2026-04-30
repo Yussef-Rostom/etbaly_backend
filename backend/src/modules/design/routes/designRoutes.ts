@@ -47,6 +47,7 @@ router.post(
 router.post("/", validate(createDesignSchema), DesignAdminController.create);
 
 router.get("/", DesignController.getAll);
+router.get("/slicing-history", DesignController.getSlicingHistory);
 router.get("/:id", DesignController.getOne);
 
 export default router;

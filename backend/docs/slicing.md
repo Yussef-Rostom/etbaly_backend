@@ -49,16 +49,15 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   - *Validation:* Valid MongoDB ObjectId (24-character hex string)
   - *Description:* The ID of the design to slice (must exist in the Design collection)
 
-- **`material`** (*string*, Optional)
+- **`material`** (*string*, Required)
   - *Validation:* Must be an active material type in the system (case-insensitive)
   - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "TPU", "Resin")
-  - *Default:* "PLA"
   - *Note:* Use `GET /api/v1/materials` to get available materials
 
-- **`color`** (*string*, Optional)
+- **`color`** (*string*, Required)
   - *Validation:* Non-empty string, trimmed
-  - *Description:* Filament color for the print (e.g., "Red", "Blue", "Black", "White")
-  - *Note:* This is informational and may be used by the worker server for visualization or documentation purposes
+  - *Description:* Material color for the print (e.g., "White", "Black", "Red", "Blue", "Gold")
+  - *Note:* Must match an available color for the selected material type. The combination of material + color must exist in the materials database.
 
 - **`preset`** (*string*, Optional)
   - *Validation:* One of: `"heavy"`, `"normal"`, `"draft"`
@@ -229,8 +228,8 @@ Represents an automated slicing operation that converts STL files to G-code.
 - **`stlFileUrl`** — Optional string (URL to input STL file from Google Drive)
 - **`gcodeUrl`** — Optional string (URL to generated G-code file, set on completion)
 - **`fileName`** — Optional string (original file name)
-- **`material`** — Optional string (material type: PLA, ABS, PETG, etc., stored in uppercase)
-- **`color`** — Optional string (filament color, informational)
+- **`material`** — String (required, material type: PLA, ABS, PETG, etc., stored in uppercase)
+- **`color`** — String (required, material color name)
 - **`preset`** — Optional string (slicing preset: heavy, normal, draft)
 - **`scale`** — Optional number (scale percentage: 1-1000, default 100)
 - **`weight`** — Optional number (weight in grams, set on completion)
@@ -301,7 +300,7 @@ Queued → Processing → Completed
 }
 ```
 
-**Note:** The `color`, `preset`, and `scale` fields are optional. If not provided in the job data, they will be omitted from the request, and the worker server will use its default values.
+**Note:** The `preset` and `scale` fields are optional. If not provided in the job data, they will be omitted from the request, and the worker server will use its default values. The `material` and `color` fields are required.
 
 **Response from Worker Server:**
 ```json

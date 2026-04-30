@@ -1,20 +1,45 @@
 import { z } from "zod";
 
-export const addCartItemSchema = z.object({
-  itemType: z.enum(["Product", "Design"]),
-  itemRefId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"),
-  quantity: z.number().int().min(1, "Quantity must be at least 1"),
-  printingProperties: z
-    .object({
-      material: z.string({ required_error: "material is required" }),
-      color: z.string().optional(),
-      scale: z.number().min(1, "scale must be at least 1 (1%)").max(1000, "scale must be at most 1000 (1000%)").optional(),
-      preset: z.enum(["heavy", "normal", "draft"]).optional(),
-      customFields: z
-        .array(z.object({ key: z.string(), value: z.string() }))
-        .optional(),
-    }),
-});
+export const addCartItemSchema = z
+  .object({
+    itemType: z.enum(["Product", "Design"]).optional(),
+    itemRefId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId").optional(),
+    quantity: z.number().int().min(1, "Quantity must be at least 1"),
+    slicingJobId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId").optional(),
+    printingProperties: z
+      .object({
+        material: z.string().optional(),
+        color: z.string().optional(),
+        scale: z
+          .number()
+          .min(1, "scale must be at least 1 (1%)")
+          .max(1000, "scale must be at most 1000 (1000%)")
+          .optional(),
+        preset: z.enum(["heavy", "normal", "draft"]).optional(),
+        customFields: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      // Mode 1: If slicingJobId is provided, no other fields are needed
+      if (data.slicingJobId) {
+        return !data.itemType && !data.itemRefId && !data.printingProperties;
+      }
+      // Mode 2: If slicingJobId is not provided, itemType, itemRefId, and printingProperties are required
+      return (
+        data.itemType &&
+        data.itemRefId &&
+        data.printingProperties &&
+        data.printingProperties.material &&
+        data.printingProperties.color
+      );
+    },
+    {
+      message:
+        "Either provide slicingJobId only (with quantity), or provide itemType, itemRefId, and printingProperties (with material and color)",
+    }
+  );
 
 export const updateCartItemSchema = z.object({
   quantity: z.number().int().min(1, "Quantity must be at least 1"),

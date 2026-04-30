@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Design, IDesign } from "#src/models/Design";
 import { Upload } from "#src/models/Upload";
+import { SlicingJob } from "#src/models/SlicingJob";
 import { uploadDesignFile } from "#src/utils/drive";
 import { AppError } from "#src/utils/AppError";
 
@@ -92,5 +93,51 @@ export class DesignService {
     }
 
     return design;
+  }
+
+  /**
+   * Get user's slicing history with populated design data
+   * Returns completed slicing jobs for reordering
+   */
+  static async getUserSlicingHistory(userId: string): Promise<any[]> {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new AppError("Invalid user ID.", 400);
+    }
+
+    const slicingJobs = await SlicingJob.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      status: "Completed",
+    })
+      .populate({
+        path: "designId",
+        select: "name fileUrl thumbnailUrl isPrintable metadata createdAt",
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return slicingJobs.map((job: any) => ({
+      jobId: job._id,
+      design: job.designId ? {
+        id: job.designId._id,
+        name: job.designId.name,
+        fileUrl: job.designId.fileUrl,
+        thumbnailUrl: job.designId.thumbnailUrl,
+        isPrintable: job.designId.isPrintable,
+        supportedMaterials: job.designId.metadata?.supportedMaterials,
+        createdAt: job.designId.createdAt,
+      } : null,
+      material: job.material,
+      color: job.color,
+      preset: job.preset,
+      scale: job.scale,
+      gcodeUrl: job.gcodeUrl,
+      weight: job.weight,
+      dimensions: job.dimensions,
+      printTime: job.printTime,
+      calculatedPrice: job.calculatedPrice,
+      copiedFromJobId: job.copiedFromJobId,
+      createdAt: job.createdAt,
+      finishedAt: job.finishedAt,
+    }));
   }
 }

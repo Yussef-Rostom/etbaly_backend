@@ -27,17 +27,23 @@ export class SlicingController {
         throw new AppError("Design not found", 404);
       }
 
-      // Validate material if provided
-      let normalizedMaterial = "PLA"; // Default
-      if (material) {
-        const validatedMaterial = await MaterialService.validateMaterial(material);
-        normalizedMaterial = validatedMaterial.type;
+      // Validate material and color are provided
+      if (!material) {
+        throw new AppError("Material type is required", 400);
       }
+      if (!color) {
+        throw new AppError("Color is required", 400);
+      }
+
+      // Validate material exists
+      const validatedMaterial = await MaterialService.validateMaterial(material, color);
+      const normalizedMaterial = validatedMaterial.type;
 
       // Check for existing completed job with same parameters
       const existingJob = await SlicingService.findExistingCompletedJob(
         new mongoose.Types.ObjectId(designId),
         normalizedMaterial,
+        color,
         preset,
         scale
       );

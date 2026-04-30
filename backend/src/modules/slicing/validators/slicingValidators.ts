@@ -9,11 +9,11 @@ export const executeSlicingJobSchema = z.object({
   material: z
     .string()
     .trim()
-    .optional(),
+    .min(1, "material is required"),
   color: z
     .string()
     .trim()
-    .optional(),
+    .min(1, "color is required"),
   preset: z
     .enum(["heavy", "normal", "draft"])
     .optional(),

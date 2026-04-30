@@ -289,10 +289,12 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`itemType`** — `"Product"` | `"Design"`
   - **`itemRefId`** — ObjectId (dynamic ref based on `itemType`)
   - **`quantity`** — Integer (≥ 1)
-  - **`unitPrice`** — Number (≥ 0)
+  - **`unitPrice`** — Number (≥ 0, locked at time of adding to cart)
+  - **`thumbnailUrl`** — Optional string (URL to item thumbnail)
+  - **`slicingJobId`** — Optional ObjectId ref → SlicingJob (reference to slicing job used for pricing)
   - **`printingProperties`** — Optional PrintingProperties object
     - **`material`** — Optional string (e.g. `"PLA"`, `"ABS"`, `"PETG"`, `"TPU"`)
-    - **`color`** — Optional string (hex color or name)
+    - **`color`** — Optional string (color name like "White", "Black", "Red")
     - **`scale`** — Optional number (1–1000, default: 100 = original size)
     - **`preset`** — Optional `"heavy"` | `"normal"` | `"draft"`
     - **`customFields`** — Optional array of `{ key: string, value: string }` objects
@@ -303,6 +305,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`discountAmount`** — Number
   - **`total`** — Number
 - **`expiresAt`** — Date (TTL: 30 days from creation)
+- **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 ### Order
 
@@ -390,9 +393,10 @@ Complete shapes of all MongoDB documents returned by the API.
 ### Material
 
 - **`_id`** — MongoDB ObjectId
-- **`name`** — Unique string
-- **`type`** — `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"`
+- **`name`** — String (descriptive name, e.g., "PLA White Filament")
+- **`type`** — `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"` (stored in uppercase)
+- **`color`** — String (required, color name like "White", "Black", "Red")
 - **`currentPricePerGram`** — Number (≥ 0)
-- **`color`** — Optional string (color name)
 - **`isActive`** — Boolean (default: `true`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
+- **Note:** Unique constraint on `type + color` combination

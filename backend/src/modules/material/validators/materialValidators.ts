@@ -7,7 +7,7 @@ export const createMaterialSchema = z.object({
       errorMap: () => ({ message: "Material type must be one of: PLA, ABS, Resin, TPU, PETG" }),
     }),
     currentPricePerGram: z.number().min(0, "Price cannot be negative"),
-    color: z.string().trim().optional(),
+    color: z.string().trim().min(1, "Color is required"),
     isActive: z.boolean().optional(),
   }),
 });
