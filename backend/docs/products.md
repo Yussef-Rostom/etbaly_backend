@@ -70,6 +70,7 @@ Returns a paginated list of all active products. Supports filtering, sorting, an
         "description": "Personalized keychain with your name",
         "images": ["https://drive.google.com/uc?id=..."],
         "currentBasePrice": 29.99,
+        "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
         "isCustomizable": true,
         "customFields": [
           {
@@ -119,6 +120,7 @@ Returns a single active product by its ID.
       "description": "Personalized keychain with your name",
       "images": ["https://drive.google.com/uc?id=..."],
       "currentBasePrice": 29.99,
+      "linkedDesignId": "64f1a2b3c4d5e6f7a8b9c0d3",
       "isCustomizable": true,
       "customFields": [
         {
