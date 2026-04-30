@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { env } from "#src/configs/envConfig";
+import { dropStaleIndexes } from "#src/jobs/migrations/dropStaleIndexes";
 
 export const connectDB = async (): Promise<void> => {
   if (mongoose.connection.readyState >= 1) {
@@ -14,6 +15,7 @@ export const connectDB = async (): Promise<void> => {
     console.log(
       `✅ MongoDB connected: ${conn.connection.host} (DB: ${dbName})`,
     );
+    await dropStaleIndexes();
   } catch (error) {
     console.error("❌ MongoDB connection error:", error);
     throw error;

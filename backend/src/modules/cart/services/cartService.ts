@@ -3,6 +3,7 @@ import { Cart, ICart } from "#src/models/Cart";
 import { Product } from "#src/models/Product";
 import { Design } from "#src/models/Design";
 import { Material } from "#src/models/Material";
+import { SlicingJob } from "#src/models/SlicingJob";
 import { IOrder } from "#src/models/Order";
 import { User } from "#src/models/User";
 import { AppError } from "#src/utils/AppError";
@@ -41,15 +42,22 @@ export class CartService {
       return product.currentBasePrice;
     }
 
-    // Design — price = volume × pricePerGram
+    // Design — use calculatedPrice from the latest completed SlicingJob
     const design = await Design.findById(itemRefId);
     if (!design) {
       throw new AppError("Design not found.", 404);
     }
-    if (design.metadata.volumeCm3 === undefined) {
-      throw new AppError("Design volume information is missing.", 400);
+    const slicingJob = await SlicingJob.findOne(
+      { designId: itemRefId, status: "Completed" },
+      { calculatedPrice: 1 },
+    ).sort({ finishedAt: -1 });
+    if (!slicingJob?.calculatedPrice) {
+      throw new AppError(
+        "Design has not been sliced yet. Please wait for slicing to complete before adding to cart.",
+        400,
+      );
     }
-    return design.metadata.volumeCm3 * material.currentPricePerGram;
+    return slicingJob.calculatedPrice;
   }
 
   /**
@@ -97,17 +105,40 @@ export class CartService {
 
     if (designItems.length > 0) {
       const designIds = designItems.map((i) => i.itemRefId);
-      const designs = await Design.find({ _id: { $in: designIds } });
-      const designMap = new Map(designs.map((d) => [d._id.toString(), d.metadata.volumeCm3]));
 
+      // Verify all designs exist
+      const designs = await Design.find({ _id: { $in: designIds } }, { _id: 1 });
+      const foundDesignIds = new Set(designs.map((d) => d._id.toString()));
       for (const item of designItems) {
-        const volumeCm3 = designMap.get(item.itemRefId.toString());
-        if (volumeCm3 === undefined) {
+        if (!foundDesignIds.has(item.itemRefId.toString())) {
           throw new AppError(`Design ${item.itemRefId} not found.`, 404);
         }
-        const pricePerGram = materialPriceMap.get(item.materialType.toUpperCase())!;
-        const key = `${item.itemRefId.toString()}_${item.materialType.toUpperCase()}`;
-        priceMap.set(key, volumeCm3 * pricePerGram);
+      }
+
+      // Fetch latest completed SlicingJob per design
+      const slicingJobs = await SlicingJob.find(
+        { designId: { $in: designIds }, status: "Completed" },
+        { designId: 1, calculatedPrice: 1, finishedAt: 1 },
+      ).sort({ finishedAt: -1 });
+
+      // Keep only the most recent completed job per designId
+      const slicingPriceMap = new Map<string, number>();
+      for (const job of slicingJobs) {
+        const key = job.designId.toString();
+        if (!slicingPriceMap.has(key)) {
+          slicingPriceMap.set(key, job.calculatedPrice!);
+        }
+      }
+
+      for (const item of designItems) {
+        const price = slicingPriceMap.get(item.itemRefId.toString());
+        if (price === undefined) {
+          throw new AppError(
+            `Design ${item.itemRefId} has not been sliced yet. Please wait for slicing to complete.`,
+            400,
+          );
+        }
+        priceMap.set(item.itemRefId.toString(), price);
       }
     }
 
@@ -135,6 +166,28 @@ export class CartService {
     if (cart.userId.toString() !== userId) {
       throw new AppError("Forbidden: You do not own this cart.", 403);
     }
+
+    // Back-fill thumbnailUrl for items that were saved before this field existed
+    let dirty = false;
+    for (const item of cart.items) {
+      if (!item.thumbnailUrl) {
+        if (item.itemType === "Design") {
+          const design = await Design.findById(item.itemRefId, { thumbnailUrl: 1 });
+          if (design?.thumbnailUrl) {
+            item.thumbnailUrl = design.thumbnailUrl;
+            dirty = true;
+          }
+        } else {
+          const product = await Product.findById(item.itemRefId, { images: 1 });
+          if (product?.images?.[0]) {
+            item.thumbnailUrl = product.images[0];
+            dirty = true;
+          }
+        }
+      }
+    }
+    if (dirty) await cart.save();
+
     return cart;
   }
 
@@ -144,6 +197,16 @@ export class CartService {
       dto.itemRefId,
       dto.printingProperties.material,
     );
+
+    // Resolve thumbnail — snapshot at add-time so cart is self-contained
+    let thumbnailUrl: string | undefined;
+    if (dto.itemType === "Design") {
+      const design = await Design.findById(dto.itemRefId, { thumbnailUrl: 1 });
+      thumbnailUrl = design?.thumbnailUrl;
+    } else {
+      const product = await Product.findById(dto.itemRefId, { images: 1 });
+      thumbnailUrl = product?.images?.[0];
+    }
 
     let cart = await Cart.findOne({ userId });
     if (!cart) {
@@ -172,6 +235,7 @@ export class CartService {
         itemRefId: new Types.ObjectId(dto.itemRefId),
         quantity: dto.quantity,
         unitPrice,
+        thumbnailUrl,
         printingProperties: dto.printingProperties,
       } as any);
     }
@@ -249,10 +313,7 @@ export class CartService {
     const priceMap = await CartService.batchResolveUnitPrices(itemsForPriceResolution);
 
     for (const item of cart.items) {
-      const materialType = item.printingProperties!.material!.toUpperCase();
-      const priceKey = item.itemType === "Product"
-        ? item.itemRefId.toString()
-        : `${item.itemRefId.toString()}_${materialType}`;
+      const priceKey = item.itemRefId.toString();
 
       const currentPrice = priceMap.get(priceKey);
       if (currentPrice === undefined) {

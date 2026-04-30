@@ -25,7 +25,7 @@ export class DesignService {
       await Upload.findOneAndUpdate(
         { driveFileId: fileId },
         { driveFileId: fileId, fileUrl, isUsed: false },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       );
     } catch (err) {
       if (err instanceof AppError) throw err;
@@ -42,7 +42,8 @@ export class DesignService {
     fileUrl: string,
     ownerId: string,
     isPrintable: boolean = false,
-    supportedMaterials: string[] = ["PLA"]
+    supportedMaterials: string[] = ["PLA"],
+    thumbnailUrl?: string,
   ): Promise<IDesign> {
     if (!mongoose.Types.ObjectId.isValid(ownerId)) {
       throw new AppError("Invalid owner ID.", 400);
@@ -56,6 +57,7 @@ export class DesignService {
       },
       ownerId: new mongoose.Types.ObjectId(ownerId),
       fileUrl,
+      ...(thumbnailUrl && { thumbnailUrl }),
     });
 
     return design;

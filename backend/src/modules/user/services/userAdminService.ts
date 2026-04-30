@@ -52,7 +52,7 @@ export class AdminUserService {
       await Upload.findOneAndUpdate(
         { driveFileId: user.profile.avatarDriveFileId },
         { driveFileId: user.profile.avatarDriveFileId, fileUrl: user.profile.avatarUrl, isUsed: false },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       );
     }
 

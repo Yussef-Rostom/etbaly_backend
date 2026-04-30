@@ -1,6 +1,7 @@
 import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
 import { AppError } from "#src/utils/AppError";
 import { uploadImage } from "#src/utils/drive";
+import { Upload } from "#src/models/Upload";
 
 export class AiGenerationService {
   /**
@@ -15,7 +16,14 @@ export class AiGenerationService {
   ): Promise<{ success: boolean; message: string; jobId: string }> {
     try {
       // 1. Upload the image directly to Google Drive
-      const { fileId } = await uploadImage(imageBuffer, imageName, mimeType);
+      const { fileId, publicUrl } = await uploadImage(imageBuffer, imageName, mimeType);
+
+      // Track the upload so the worker can resolve the thumbnail URL
+      await Upload.findOneAndUpdate(
+        { driveFileId: fileId },
+        { driveFileId: fileId, fileUrl: publicUrl, isUsed: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+      );
 
       // 2. Add job to configured AI_GENERATION queue passing only the fileId (no raw buffers)
       const aiQueue = queueManager.getQueue(QUEUE_NAMES.AI_GENERATION);

@@ -1,9 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
 import { DesignController } from "../controllers/designController";
+import { DesignAdminController } from "../controllers/designAdminController";
 import { authMiddleware } from "#src/middlewares/authMiddleware";
 import { validate } from "#src/middlewares/validate";
 import { uploadDesignSchema } from "#src/modules/design/validators/designValidators";
+import { createDesignSchema } from "#src/modules/design/validators/designAdminValidators";
 
 const router = Router();
 
@@ -40,6 +42,9 @@ router.post(
   validate(uploadDesignSchema),
   DesignController.uploadDesign,
 );
+
+// POST /api/v1/designs
+router.post("/", validate(createDesignSchema), DesignAdminController.create);
 
 router.get("/", DesignController.getAll);
 router.get("/:id", DesignController.getOne);

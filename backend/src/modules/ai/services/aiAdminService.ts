@@ -64,7 +64,7 @@ export class AiAdminService {
         },
         { 
           upsert: true, 
-          new: true,
+          returnDocument: 'after',
           runValidators: true
         }
       );
@@ -147,7 +147,7 @@ export class AiAdminService {
         },
         { 
           upsert: true, 
-          new: true,
+          returnDocument: 'after',
           runValidators: true
         }
       );

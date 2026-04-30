@@ -4,4 +4,5 @@ import { BaseJobData } from "../registry";
 export interface TextToImageJobData extends BaseJobData {
   prompt: string;
   designName: string;
+  correlationId: string;
 }

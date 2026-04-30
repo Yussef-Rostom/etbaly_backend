@@ -7,6 +7,7 @@ export interface IDesign extends Document {
   metadata: IDesignMetadata;
   ownerId: mongoose.Types.ObjectId;
   fileUrl: string;
+  thumbnailUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +35,10 @@ const designSchema = new Schema<IDesign>(
     fileUrl: {
       type: String,
       required: [true, "File URL is required"],
+    },
+    thumbnailUrl: {
+      type: String,
+      trim: true,
     },
   },
   {

@@ -292,7 +292,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`printingProperties`** — Optional PrintingProperties object
     - **`material`** — Optional string (e.g. `"PLA"`, `"ABS"`, `"PETG"`, `"TPU"`)
     - **`color`** — Optional string (hex color or name)
-    - **`scale`** — Optional number (0.1–10, default: 1)
+    - **`scale`** — Optional number (1–1000, default: 100 = original size)
     - **`preset`** — Optional `"heavy"` | `"normal"` | `"draft"`
     - **`customFields`** — Optional array of `{ key: string, value: string }` objects
 - **`pricingSummary`** — Embedded PricingSummary object
@@ -317,7 +317,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`printingProperties`** — Optional PrintingProperties object
     - **`material`** — Optional string
     - **`color`** — Optional string
-    - **`scale`** — Optional number (0.1–10)
+    - **`scale`** — Optional number (1–1000)
     - **`preset`** — Optional `"heavy"` | `"normal"` | `"draft"`
     - **`customFields`** — Optional array of `{ key: string, value: string }` objects
 - **`shippingAddressSnapshot`** — Embedded Address (snapshot at time of order)

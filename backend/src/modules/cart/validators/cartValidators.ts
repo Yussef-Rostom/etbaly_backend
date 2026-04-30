@@ -8,7 +8,7 @@ export const addCartItemSchema = z.object({
     .object({
       material: z.string({ required_error: "material is required" }),
       color: z.string().optional(),
-      scale: z.number().min(0.1).max(10).optional(),
+      scale: z.number().min(1, "scale must be at least 1 (1%)").max(1000, "scale must be at most 1000 (1000%)").optional(),
       preset: z.enum(["heavy", "normal", "draft"]).optional(),
       customFields: z
         .array(z.object({ key: z.string(), value: z.string() }))

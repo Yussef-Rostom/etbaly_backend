@@ -10,8 +10,10 @@ export interface BaseJobData {
 
 export interface AiJobData extends BaseJobData {
   fileId: string;
+  imageName: string;
   designName: string;
   mimeType: string;
+  correlationId: string;
   sourceJobId?: string; // Optional: ID of TEXT_TO_IMAGE job if chained
 }
 
@@ -19,7 +21,9 @@ export interface SlicingJobData extends BaseJobData {
   stlUrl: string;
   designId: string;
   material: string;
+  color?: string;
   preset?: 'heavy' | 'normal' | 'draft';
+  /** Scale percentage: 1–1000 (100 = original size) */
   scale?: number;
 }
 

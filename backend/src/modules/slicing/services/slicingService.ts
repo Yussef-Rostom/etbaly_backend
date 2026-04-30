@@ -141,7 +141,7 @@ export class SlicingService {
     const updatedJob = await SlicingJob.findByIdAndUpdate(
       jobId,
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {

@@ -214,7 +214,7 @@ Users may only retrieve their own jobs. Requesting another user's job returns 40
 }
 ```
 
-**Note:** For image-to-3D jobs, the `designId` is a real MongoDB ObjectId of the created Design document. The design is created using the public Design service and is owned by the user who submitted the job. The resulting 3D model is saved to the `designs/` folder in Google Drive. By default, generated designs have `isPrintable: false` and `supportedMaterials: ["PLA"]`. Users can access this design via the Designs API endpoints.
+**Note:** For image-to-3D jobs, the `designId` is a real MongoDB ObjectId of the created Design document. The design is created using the public Design service and is owned by the user who submitted the job. The resulting 3D model is saved to the `designs/` folder in Google Drive. By default, generated designs have `isPrintable: false` and `supportedMaterials: ["PLA"]`. The source image is automatically saved as the design's `thumbnailUrl`. Users can access this design via the Designs API endpoints.
 
 **Response 200 — OK (Completed - Text-to-Image)**
 ```json
@@ -419,7 +419,7 @@ Updates the Lightning AI image-to-3D service endpoint URL. Changes take effect i
 {
   "success": true,
   "message": "Image-to-3D URL updated successfully",
-  "data": {admin/ai/set-text-to-image-url`
+  "data": {
     "url": "https://lightning-image-to-3d.example.com/api/v1/convert"
   }
 }

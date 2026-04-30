@@ -7,7 +7,7 @@ import { getAuthUser } from "#src/middlewares/authMiddleware";
 export class CartController {
   static getCart = catchAsync(async (req: Request, res: Response) => {
     const cart = await CartService.getCart(getAuthUser(req)._id.toString());
-
+    
     sendSuccess(res, 200, "Cart fetched successfully", { cart });
   });
 

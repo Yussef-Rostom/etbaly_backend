@@ -51,6 +51,11 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "PLA+")
   - *Default:* "PLA"
 
+- **`color`** (*string*, Optional)
+  - *Validation:* Non-empty string, trimmed
+  - *Description:* Filament color for the print (e.g., "Red", "Blue", "Black", "White")
+  - *Note:* This is informational and may be used by the worker server for visualization or documentation purposes
+
 - **`preset`** (*string*, Optional)
   - *Validation:* One of: `"heavy"`, `"normal"`, `"draft"`
   - *Description:* Slicing quality preset
@@ -59,8 +64,8 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
     - `draft`: Fast/light (0.3mm layer height, 10% infill, 2 perimeters)
 
 - **`scale`** (*number*, Optional)
-  - *Validation:* Positive number
-  - *Description:* Scale factor for the model (e.g., 100 = 100%, 50 = 50% size)
+  - *Validation:* Number between 1 and 1000 (percentage)
+  - *Description:* Scale percentage for the model (e.g., `100` = original size, `50` = half size, `200` = double size)
 
 **Response 200 — OK**
 ```json
@@ -229,10 +234,13 @@ Queued → Processing → Completed
   "filename": "model-{designId}-{timestamp}.stl",
   "output_filename": "gcode-{designId}-{timestamp}",
   "material": "pla",
+  "color": "red",
   "preset": "normal",
   "scale": 100
 }
 ```
+
+**Note:** The `color`, `preset`, and `scale` fields are optional. If not provided in the job data, they will be omitted from the request, and the worker server will use its default values.
 
 **Response from Worker Server:**
 ```json
@@ -282,13 +290,23 @@ Price = (weight × material.currentPricePerGram) + (printTime / 60 × PRINTING_H
 ## Example Usage
 
 ```bash
-# Dispatch a slicing job
+# Basic example (with defaults)
+POST /api/v1/slicing/execute
+Authorization: Bearer <token>
+
+{
+  "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
+  "material": "PLA"
+}
+
+# Advanced example (with all options)
 POST /api/v1/slicing/execute
 Authorization: Bearer <token>
 
 {
   "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
   "material": "PETG",
+  "color": "Blue",
   "preset": "heavy",
   "scale": 150
 }

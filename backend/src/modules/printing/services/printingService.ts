@@ -81,7 +81,7 @@ export class PrintingService {
     const updatedJob = await PrintingJob.findByIdAndUpdate(
       jobId,
       { status: targetStatus },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {
@@ -140,7 +140,7 @@ export class PrintingService {
     const updatedJob = await PrintingJob.findByIdAndUpdate(
       jobId,
       updateData,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {
@@ -179,7 +179,7 @@ export class PrintingService {
         status: "Completed",
         finishedAt: new Date(),
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {
@@ -222,7 +222,7 @@ export class PrintingService {
         status: "Failed",
         finishedAt: new Date(),
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {

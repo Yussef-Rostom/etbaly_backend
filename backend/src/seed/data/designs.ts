@@ -6,6 +6,7 @@ export const getDesignsData = (adminId: Types.ObjectId) => [
     name: "Decorative Vase",
     isPrintable: true,
     fileUrl: "https://drive.google.com/uc?export=view&id=seed_vase_001",
+    thumbnailUrl: "https://drive.google.com/uc?export=view&id=seed_vase_thumb_001",
     ownerId: adminId,
     metadata: {
       volumeCm3: 85.5,
@@ -18,6 +19,7 @@ export const getDesignsData = (adminId: Types.ObjectId) => [
     name: "Phone Stand",
     isPrintable: true,
     fileUrl: "https://drive.google.com/uc?export=view&id=seed_stand_002",
+    thumbnailUrl: "https://drive.google.com/uc?export=view&id=seed_stand_thumb_002",
     ownerId: adminId,
     metadata: {
       volumeCm3: 22.3,
@@ -30,6 +32,7 @@ export const getDesignsData = (adminId: Types.ObjectId) => [
     name: "Cable Organizer",
     isPrintable: true,
     fileUrl: "https://drive.google.com/uc?export=view&id=seed_cable_003",
+    thumbnailUrl: "https://drive.google.com/uc?export=view&id=seed_cable_thumb_003",
     ownerId: adminId,
     metadata: {
       volumeCm3: 12.1,
@@ -42,6 +45,7 @@ export const getDesignsData = (adminId: Types.ObjectId) => [
     name: "Miniature Chess Set",
     isPrintable: false,
     fileUrl: "https://drive.google.com/uc?export=view&id=seed_chess_004",
+    thumbnailUrl: "https://drive.google.com/uc?export=view&id=seed_chess_thumb_004",
     ownerId: adminId,
     metadata: {
       volumeCm3: 180.0,

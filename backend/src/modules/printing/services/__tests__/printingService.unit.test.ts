@@ -101,7 +101,7 @@ describe("PrintingService", () => {
       expect(PrintingJob.findByIdAndUpdate).toHaveBeenCalledWith(
         jobId,
         { status: "Queued" },
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
       expect(result.status).toBe("Queued");
     });
@@ -202,7 +202,7 @@ describe("PrintingService", () => {
           status: "Processing",
           startedAt: expect.any(Date),
         }),
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
       expect(result.status).toBe("Processing");
     });
@@ -234,7 +234,7 @@ describe("PrintingService", () => {
           machineId,
           startedAt: expect.any(Date),
         }),
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
     });
 
@@ -287,7 +287,7 @@ describe("PrintingService", () => {
           status: "Completed",
           finishedAt: expect.any(Date),
         }),
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
       expect(result.status).toBe("Completed");
     });
@@ -341,7 +341,7 @@ describe("PrintingService", () => {
           status: "Failed",
           finishedAt: expect.any(Date),
         }),
-        { new: true, runValidators: true }
+        { returnDocument: 'after', runValidators: true }
       );
       expect(result.status).toBe("Failed");
     });

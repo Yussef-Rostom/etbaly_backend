@@ -41,7 +41,7 @@ export class ProductAdminService {
     await Upload.findOneAndUpdate(
       { driveFileId: fileId },
       { driveFileId: fileId, fileUrl: publicUrl, isUsed: false },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
 
     return { fileUrl: publicUrl, fileId };
@@ -103,7 +103,7 @@ export class ProductAdminService {
     }
 
     const product = await Product.findByIdAndUpdate(productId, data, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }).populate("linkedDesignId", "name isPrintable fileUrl");
 
@@ -177,13 +177,14 @@ export class ProductAdminService {
 
       // Dispatch job to slicing queue 
       const slicingQueue = queueManager.getQueue(QUEUE_NAMES.SLICING);
-      await slicingQueue.add("slice-model", {
-        modelFileKey: fileName,
+      const jobData: SlicingJobData = {
+        jobId: job._id.toString(),
+        stlUrl: design.fileUrl,
         designId: job._id.toString(),
-        material: "PLA", // default material
-        ownerId: "system", // default owner
-        correlationId: `slice-${job._id.toString()}-${Date.now()}`
-      } as SlicingJobData);
+        material: "PLA",
+        ownerId: "system",
+      };
+      await slicingQueue.add("slice-model", jobData);
 
       // Mark images as used after successful job creation and dispatch
       if (data.images?.length) {

@@ -18,7 +18,8 @@
     "start": "node dist/src/server.js",
     "test": "jest --runInBand",
     "seed": "tsx src/seed/seed.ts --",
-    "clear": "tsx src/seed/clear.ts --"
+    "clear": "tsx src/seed/clear.ts --",
+    "seed:materials": "tsx src/seed/seedMaterials.ts"
   },
   "jest": {
     "preset": "ts-jest",

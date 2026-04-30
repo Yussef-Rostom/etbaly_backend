@@ -8,6 +8,7 @@ export class OrderController {
   static getMyOrders = catchAsync(async (req: Request, res: Response) => {
     const orders = await OrderService.getMyOrders(getAuthUser(req)._id.toString());
 
+    console.log(orders);
     sendSuccess(res, 200, "Orders fetched successfully", { orders });
   });
 

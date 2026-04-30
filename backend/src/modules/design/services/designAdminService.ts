@@ -36,7 +36,7 @@ export class DesignAdminService {
     await Upload.findOneAndUpdate(
       { driveFileId: result.fileId },
       { driveFileId: result.fileId, fileUrl: result.publicUrl, isUsed: false },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
 
     return { fileUrl: result.publicUrl, fileId: result.fileId };
@@ -94,6 +94,7 @@ export class DesignAdminService {
     if (dto.name !== undefined) design.name = dto.name;
     if (dto.isPrintable !== undefined) design.isPrintable = dto.isPrintable;
     if (dto.fileUrl !== undefined) design.fileUrl = dto.fileUrl;
+    if (dto.thumbnailUrl !== undefined) design.thumbnailUrl = dto.thumbnailUrl;
 
     if (dto.metadata) {
       const m = dto.metadata;
@@ -120,7 +121,7 @@ export class DesignAdminService {
         await Upload.findOneAndUpdate(
           { driveFileId: oldFileId },
           { driveFileId: oldFileId, fileUrl: oldFileUrl, isUsed: false },
-          { upsert: true, new: true, setDefaultsOnInsert: true },
+          { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
         );
       }
     }
@@ -155,7 +156,7 @@ export class DesignAdminService {
       await Upload.findOneAndUpdate(
         { driveFileId: fileId },
         { driveFileId: fileId, fileUrl, isUsed: false },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       );
     }
   }

@@ -15,6 +15,7 @@ All routes require authentication (`Bearer <accessToken>`).
 Returns the authenticated user's current cart, including all items and the computed pricing summary.
 
 **Response 200 — OK**
+
 ```json
 {
   "success": true,
@@ -30,12 +31,13 @@ Returns the authenticated user's current cart, including all items and the compu
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
           "quantity": 2,
           "unitPrice": 29.99,
+          "thumbnailUrl": "https://drive.google.com/uc?export=view&id=...",
           "printingProperties": {
             "material": "PLA",
             "color": "#FF5733",
-            "scale": 1,
-            "preset": "normal",
-
+            "scale": 100,
+            "preset": "normal"
+          }
         }
       ],
       "pricingSummary": {
@@ -52,6 +54,7 @@ Returns the authenticated user's current cart, including all items and the compu
 ```
 
 **Response 401 — Unauthenticated**
+
 ```json
 { "success": false, "message": "You are not logged in. Please log in to get access." }
 ```
@@ -69,26 +72,24 @@ Adds an item to the cart. If the item already exists with the same configuration
 - **`itemType`** (*string*, Required)
   - *Validation:* Must be `"Product"` or `"Design"`
   - *Description:* The type of item being added
-
 - **`itemRefId`** (*string*, Required)
   - *Validation:* Must be a strict 24-character hex MongoDB ObjectId (Regex validated: `/^[0-9a-fA-F]{24}$/`)
   - *Description:* The ID of the Product or Design document
-
 - **`quantity`** (*integer*, Required)
   - *Validation:* Integer, min 1
   - *Description:* Number of units to add
-
 - **`printingProperties`** (*object*, Required)
   - *Description:* 3D printing configuration for this item
   - **`material`** (*string*, Required) — Material type: `"PLA"` | `"ABS"` | `"PETG"` | `"TPU"` | `"Resin"`
   - **`color`** (*string*, Optional) — Color value (e.g. hex code `"#FF5733"`)
-  - **`scale`** (*number*, Optional) — Scale multiplier (0.1–10, default: 1)
+  - **`scale`** (*number*, Optional) — Scale percentage (1–1000, default: 100 = original size)
   - **`preset`** (*string*, Optional) — Slicing quality preset: `"heavy"` | `"normal"` | `"draft"`
   - **`customFields`** (*array*, Optional) — List of custom key-value pairs
     - **`key`** (*string*, Required) — Field name
     - **`value`** (*string*, Required) — Field value
 
 **Response 200 — OK**
+
 ```json
 {
   "success": true,
@@ -98,6 +99,7 @@ Adds an item to the cart. If the item already exists with the same configuration
 ```
 
 **Response 400 — Validation Error**
+
 ```json
 {
   "success": false,
@@ -106,15 +108,25 @@ Adds an item to the cart. If the item already exists with the same configuration
 }
 ```
 
-**Response 400 — Missing Material**
+**Response 400 — Design Not Sliced**
+
+```json
+{ "success": false, "message": "Design has not been sliced yet. Please wait for slicing to complete before adding to cart." }
+```
+
+**Response 404 — Material Not Found**
+
 ```json
 { "success": false, "message": "Material type \"PLA\" not found or not currently active." }
 ```
 
 **Response 404 — Item Not Found**
+
 ```json
 { "success": false, "message": "Product not found or not currently active." }
 ```
+
+> Also applies to Design items: `"Design not found."`
 
 ---
 
@@ -135,6 +147,7 @@ Updates the quantity of a specific cart item.
   - *Description:* The new quantity for the cart item
 
 **Response 200 — OK**
+
 ```json
 {
   "success": true,
@@ -144,6 +157,7 @@ Updates the quantity of a specific cart item.
 ```
 
 **Response 404 — Item Not Found**
+
 ```json
 { "success": false, "message": "Cart item not found." }
 ```
@@ -161,6 +175,7 @@ Removes a specific item from the cart.
 - **`:id`** (*string*, Required) — The `_id` of the cart item to remove
 
 **Response 200 — OK**
+
 ```json
 {
   "success": true,
@@ -170,6 +185,7 @@ Removes a specific item from the cart.
 ```
 
 **Response 404 — Item Not Found**
+
 ```json
 { "success": false, "message": "Cart item not found." }
 ```
@@ -183,6 +199,7 @@ Removes a specific item from the cart.
 Removes all items from the cart and resets the pricing summary.
 
 **Response 200 — OK**
+
 ```json
 {
   "success": true,
@@ -196,7 +213,7 @@ Removes all items from the cart and resets the pricing summary.
 
 - **Access:** Authenticated (any role)
 
-Converts the current cart into an order. The cart must be non-empty. Creates an Order document and clears the cart.
+Converts the current cart into an order. The cart must be non-empty. Creates an Order document and deletes the cart.
 
 **Request Body (JSON)**
 
@@ -206,12 +223,12 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
   - **`city`** (*string*, Required) — City
   - **`country`** (*string*, Required) — Country
   - **`zip`** (*string*, Required) — ZIP / postal code
-
 - **`paymentMethod`** (*string*, Required)
   - *Validation:* Must be one of `"Card"`, `"Wallet"`, `"COD"`
   - *Description:* The payment method for this order
 
 **Response 201 — Created**
+
 ```json
 {
   "success": true,
@@ -226,7 +243,7 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
           "itemType": "Product",
           "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
           "quantity": 2,
-          "price": 29.99,
+          "price": 59.98,
           "status": "Queued"
         }
       ],
@@ -256,11 +273,13 @@ Converts the current cart into an order. The cart must be non-empty. Creates an 
 ```
 
 **Response 400 — Empty Cart**
+
 ```json
 { "success": false, "message": "Cannot checkout with an empty cart." }
 ```
 
 **Response 400 — Validation Error**
+
 ```json
 {
   "success": false,

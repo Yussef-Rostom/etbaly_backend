@@ -4,8 +4,7 @@ import { sendSuccess } from "#src/utils/apiResponse";
 import { PrintingService } from "#src/modules/printing/services/printingService";
 import { SlicingService } from "#src/modules/slicing/services/slicingService";
 import { getAuthUser } from "#src/middlewares/authMiddleware";
-import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
-import { PrintingJobData } from "#src/workers/registry";
+import { AppError } from "#src/utils/AppError";
 import mongoose from "mongoose";
 
 export class PrintingController {
@@ -23,18 +22,20 @@ export class PrintingController {
       const slicingJob = await SlicingService.getSlicingJobById(slicingJobId);
       
       if (!slicingJob) {
-        sendSuccess(res, 404, "SlicingJob not found.", null);
-        return;
+        throw new AppError("Slicing job not found", 404);
       }
 
+      // Validate that slicing job is completed
       if (slicingJob.status !== "Completed") {
-        sendSuccess(res, 400, "SlicingJob must be completed before creating a printing job.", null);
-        return;
+        throw new AppError(
+          `Slicing job must be completed before creating a printing job. Current status: ${slicingJob.status}`,
+          400
+        );
       }
 
+      // Validate that gcodeUrl exists
       if (!slicingJob.gcodeUrl) {
-        sendSuccess(res, 400, "SlicingJob must have a valid G-code URL.", null);
-        return;
+        throw new AppError("Slicing job does not have a G-code URL", 400);
       }
 
       // Generate unique job number
@@ -49,23 +50,11 @@ export class PrintingController {
         operatorId: user._id,
       });
 
-      // Dispatch to PRINTING queue using the printing job ID as jobId
-      const printingQueue = queueManager.getQueue(QUEUE_NAMES.PRINTING);
-      const jobData: PrintingJobData = {
-        jobId: printingJob._id.toString(),
-        ownerId: user._id.toString(),
-        gcodeUrl: slicingJob.gcodeUrl,
-        designId: slicingJob.designId?.toString() || slicingJobId,
-      };
-      
-      await printingQueue.add("print-job", jobData);
-
-      sendSuccess(res, 200, "PrintingJob created and dispatched to queue successfully. Awaiting review.", {
+      sendSuccess(res, 200, "PrintingJob created successfully. Awaiting review.", {
         jobId: printingJob._id,
         jobNumber: printingJob.jobNumber,
         status: printingJob.status,
         slicingJobId: slicingJob._id,
-        fileName: slicingJob.fileName,
         gcodeUrl: slicingJob.gcodeUrl,
       });
     },

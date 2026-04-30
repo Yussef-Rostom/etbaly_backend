@@ -38,6 +38,67 @@ Uploads a 3D design file (e.g. `.stl`, `.obj`, `.3mf`) to Google Drive and retur
 
 ---
 
+### `POST /api/v1/designs`
+
+- **Access:** Authenticated (any role)
+
+Creates a new design record. Obtain the `fileUrl` from the upload endpoint first.
+
+**Request Body (JSON)**
+
+- **`name`** (*string*, Required)
+  - *Validation:* Min 1 char, trimmed
+  - *Description:* Display name for the design
+
+- **`fileUrl`** (*string*, Required)
+  - *Validation:* Must be a valid URL previously uploaded via `POST /api/v1/designs/upload`
+  - *Description:* URL of the uploaded 3D model file
+
+- **`metadata`** (*object*, Required)
+  - *Description:* Technical metadata about the 3D model
+  - **`volumeCm3`** (*number*, Optional) — Must be positive; volume in cm³
+  - **`dimensions`** (*object*, Optional)
+    - **`x`** (*number*, Optional) — Must be positive; width in mm
+    - **`y`** (*number*, Optional) — Must be positive; depth in mm
+    - **`z`** (*number*, Optional) — Must be positive; height in mm
+  - **`estimatedPrintTime`** (*number*, Optional) — Must be positive; minutes
+  - **`supportedMaterials`** (*array of strings*, Required) — Min 1 item; `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"`
+
+- **`isPrintable`** (*boolean*, Optional) — Default: `false`
+
+- **`thumbnailUrl`** (*string*, Optional) — Preview image URL
+
+**Response 201 — Created**
+```json
+{
+  "success": true,
+  "message": "Design created successfully",
+  "data": {
+    "design": {
+      "_id": "64f1a2b3c4d5e6f7a8b9c0d3",
+      "name": "Custom Bracket",
+      "isPrintable": false,
+      "fileUrl": "https://drive.google.com/uc?id=...",
+      "thumbnailUrl": null,
+      "ownerId": "64f1a2b3c4d5e6f7a8b9c0d1",
+      "metadata": {
+        "volumeCm3": 12.5,
+        "dimensions": { "x": 50, "y": 30, "z": 20 },
+        "estimatedPrintTime": 90,
+        "supportedMaterials": ["PLA"]
+      }
+    }
+  }
+}
+```
+
+**Response 400 — Untracked File**
+```json
+{ "success": false, "message": "fileUrl was not uploaded to our storage. Please upload the file first." }
+```
+
+---
+
 ### `GET /api/v1/designs`
 
 - **Access:** Authenticated (any role)
@@ -56,6 +117,7 @@ Returns designs visible to the authenticated user. Admins receive all designs; c
         "name": "Custom Bracket",
         "isPrintable": true,
         "fileUrl": "https://drive.google.com/uc?id=...",
+        "thumbnailUrl": "https://drive.google.com/uc?id=...",
         "ownerId": "64f1a2b3c4d5e6f7a8b9c0d1",
         "metadata": {
           "volumeCm3": 12.5,
@@ -98,6 +160,7 @@ Returns a single design by ID. Clients can only access their own designs; admins
       "name": "Custom Bracket",
       "isPrintable": true,
       "fileUrl": "https://drive.google.com/uc?id=...",
+      "thumbnailUrl": "https://drive.google.com/uc?id=...",
       "ownerId": "64f1a2b3c4d5e6f7a8b9c0d1",
       "metadata": {
         "volumeCm3": 12.5,
@@ -130,116 +193,6 @@ All routes in this section require authentication and the `admin` role.
 
 ---
 
-### `POST /api/v1/admin/designs/upload`
-
-- **Access:** Admin only
-- **Content-Type:** `multipart/form-data`
-
-Uploads a 3D design file (e.g. `.stl`, `.obj`) to Google Drive and returns the public URL. Use the returned URL as `fileUrl` when creating a design record.
-
-**Form Fields**
-
-- **`file`** (*file*, Required)
-  - *Validation:* Max file size 50 MB
-  - *Description:* The 3D model file to upload
-
-**Response 200 — OK**
-```json
-{
-  "success": true,
-  "message": "Design file uploaded successfully",
-  "data": {
-    "fileId": "1a2b3c4d5e6f7g8h9i0j",
-    "fileUrl": "https://drive.google.com/uc?export=view&id=1a2b3c4d5e6f7g8h9i0j"
-  }
-}
-```
-
-**Response 400 — No File**
-```json
-{ "success": false, "message": "Design file is required." }
-```
-
----
-
-### `POST /api/v1/admin/designs`
-
-- **Access:** Admin only
-
-Creates a new design record. Obtain the `fileUrl` from the upload endpoint first.
-
-**Request Body (JSON)**
-
-- **`name`** (*string*, Required)
-  - *Validation:* Min 1 char, trimmed
-  - *Description:* Display name for the design
-
-- **`fileUrl`** (*string*, Required)
-  - *Validation:* Must be a valid URL previously uploaded via `POST /api/v1/admin/designs/upload-file`
-  - *Description:* URL of the uploaded 3D model file
-
-- **`metadata`** (*object*, Required)
-  - *Description:* Technical metadata about the 3D model
-  - **`volumeCm3`** (*number*, Optional)
-    - *Validation:* Must be positive
-    - *Description:* Volume of the model in cm³
-  - **`dimensions`** (*object*, Optional)
-    - **`x`** (*number*, Optional) — Must be positive; width in mm
-    - **`y`** (*number*, Optional) — Must be positive; depth in mm
-    - **`z`** (*number*, Optional) — Must be positive; height in mm
-  - **`estimatedPrintTime`** (*number*, Optional)
-    - *Validation:* Must be positive
-    - *Description:* Estimated print time in minutes
-  - **`supportedMaterials`** (*array of strings*, Required)
-    - *Validation:* Min 1 item; each must be one of `"PLA"`, `"ABS"`, `"Resin"`, `"TPU"`, `"PETG"`
-    - *Description:* Materials compatible with this design
-
-- **`isPrintable`** (*boolean*, Optional)
-  - *Description:* Whether the design is ready for printing (default: `false`)
-
-**Response 201 — Created**
-```json
-{
-  "success": true,
-  "message": "Design created successfully",
-  "data": {
-    "design": {
-      "_id": "64f1a2b3c4d5e6f7a8b9c0d3",
-      "name": "Custom Bracket",
-      "isPrintable": false,
-      "fileUrl": "https://drive.google.com/uc?id=...",
-      "ownerId": "64f1a2b3c4d5e6f7a8b9c0d1",
-      "metadata": {
-        "volumeCm3": 12.5,
-        "dimensions": { "x": 50, "y": 30, "z": 20 },
-        "estimatedPrintTime": 90,
-        "supportedMaterials": ["PLA"]
-      }
-    }
-  }
-}
-```
-
-**Response 400 — Validation Error**
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "data": {
-    "errors": [
-      { "field": "metadata.supportedMaterials", "message": "supportedMaterials must contain at least one material" }
-    ]
-  }
-}
-```
-
-**Response 400 — Untracked File**
-```json
-{ "success": false, "message": "fileUrl was not uploaded to our storage. Please upload the file first." }
-```
-
----
-
 ### `PATCH /api/v1/admin/designs/:id`
 
 - **Access:** Admin only
@@ -259,6 +212,10 @@ Partially updates a design. All fields are optional.
   - *Validation:* Must be a valid URL
 
 - **`isPrintable`** (*boolean*, Optional)
+
+- **`thumbnailUrl`** (*string*, Optional)
+  - *Validation:* Must be a valid URL
+  - *Description:* Preview image URL. Automatically set by AI workers. Can be set manually to override.
 
 - **`metadata`** (*object*, Optional) — Partial update; all sub-fields optional
   - **`volumeCm3`** (*number*, Optional) — Must be positive

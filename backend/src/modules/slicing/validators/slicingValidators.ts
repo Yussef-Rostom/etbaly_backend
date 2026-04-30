@@ -10,12 +10,17 @@ export const executeSlicingJobSchema = z.object({
     .string()
     .trim()
     .optional(),
+  color: z
+    .string()
+    .trim()
+    .optional(),
   preset: z
     .enum(["heavy", "normal", "draft"])
     .optional(),
   scale: z
     .number()
-    .positive("scale must be a positive number")
+    .min(1, "scale must be at least 1 (1%)")
+    .max(1000, "scale must be at most 1000 (1000%)")
     .optional(),
 });
 

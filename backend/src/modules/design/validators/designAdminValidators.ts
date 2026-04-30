@@ -25,6 +25,7 @@ export const createDesignSchema = z.object({
 export const updateDesignSchema = z.object({
   name: z.string().min(1, "name cannot be empty").trim().optional(),
   fileUrl: z.string().url("fileUrl must be a valid URL").optional(),
+  thumbnailUrl: z.string().url("thumbnailUrl must be a valid URL").optional(),
   metadata: metadataSchema.partial().optional(),
   isPrintable: z.boolean().optional(),
 });

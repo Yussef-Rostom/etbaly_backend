@@ -40,6 +40,7 @@ export class SlicingController {
         stlUrl: design.fileUrl,
         designId: slicingJob._id.toString(),
         material: req.body.material || 'PLA',
+        color: req.body.color,
         ownerId: user._id.toString(),
         jobId: slicingJob._id.toString(),
         ...(req.body.preset && { preset: req.body.preset }),

@@ -122,7 +122,7 @@ export class UserService {
     await Upload.findOneAndUpdate(
       { driveFileId: fileId },
       { driveFileId: fileId, fileUrl: publicUrl, isUsed: false },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     );
 
     // Delete old avatar from Drive and remove its Upload tracker

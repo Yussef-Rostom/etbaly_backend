@@ -10,6 +10,7 @@ export interface ICartItem {
   itemRefId: Types.ObjectId;
   quantity: number;
   unitPrice: number;
+  thumbnailUrl?: string;
   printingProperties?: IPrintingProperties;
 }
 
@@ -35,6 +36,10 @@ export const cartItemSchema = new Schema<ICartItem>(
       type: Number,
       required: true,
       min: [0, "Unit price cannot be negative"],
+    },
+    thumbnailUrl: {
+      type: String,
+      trim: true,
     },
     printingProperties: {
       type: printingPropertiesSchema,

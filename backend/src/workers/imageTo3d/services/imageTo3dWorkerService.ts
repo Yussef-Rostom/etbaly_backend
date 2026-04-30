@@ -5,6 +5,7 @@ import { AiJobData } from "../../registry";
 import { downloadDriveFile, uploadDesignFile } from "#src/utils/drive";
 import { AiAdminService } from "#src/modules/ai/services/aiAdminService";
 import { DesignService } from "#src/modules/design/services/designService";
+import { Upload } from "#src/models/Upload";
 import fs from "fs";
 import path from "path";
 
@@ -131,11 +132,18 @@ export class ImageTo3dWorkerService {
     const uploadResult = await uploadDesignFile(stlBuffer!, `${finalDesignName}.stl`);
     await job.updateProgress(80);
 
-    // 4. Create DB record (100% progress)
+    // 4. Resolve thumbnail — use the source image public URL from Upload tracker
+    const uploadTracker = await Upload.findOne({ driveFileId: job.data.fileId }, { fileUrl: 1 });
+    const thumbnailUrl = uploadTracker?.fileUrl;
+
+    // 5. Create DB record (100% progress)
     const design = await DesignService.createDesign(
       finalDesignName,
       uploadResult.publicUrl,
-      ownerId
+      ownerId,
+      false,
+      ["PLA"],
+      thumbnailUrl,
     );
     await job.updateProgress(100);
 
