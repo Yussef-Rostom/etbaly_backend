@@ -39,7 +39,7 @@ System Validates Material (type + color) and Calculates Price
 - **ABS** - Acrylonitrile Butadiene Styrene (strong, heat-resistant)
 - **PETG** - Polyethylene Terephthalate Glycol (durable, flexible)
 - **TPU** - Thermoplastic Polyurethane (flexible, rubber-like)
-- **Resin** - Photopolymer resin (high detail, smooth finish)
+- **RESIN** - Photopolymer resin (high detail, smooth finish)
 
 **Important:** Each material is uniquely identified by its **type + color** combination. You cannot have two materials with the same type and color (e.g., two "PLA White" materials).
 
@@ -91,7 +91,7 @@ Returns all active materials available for slicing operations. Only materials wi
         "color": "Pink"
       },
       {
-        "type": "Resin",
+        "type": "RESIN",
         "name": "Standard Resin",
         "pricePerGram": 0.050,
         "color": "Brown"
@@ -199,7 +199,7 @@ Creates a new material in the system. The material type is automatically convert
   - *Description:* Descriptive display name for the material (e.g., "PLA White Filament", "Premium ABS Black")
 
 - **`type`** (*string*, Required)
-  - *Validation:* Must be one of: `"PLA"`, `"ABS"`, `"Resin"`, `"TPU"`, `"PETG"`
+  - *Validation:* Must be one of: `"PLA"`, `"ABS"`, `"RESIN"`, `"TPU"`, `"PETG"`
   - *Description:* Material type identifier (automatically converted to uppercase)
 
 - **`color`** (*string*, Required)
@@ -241,7 +241,7 @@ Creates a new material in the system. The material type is automatically convert
   "message": "Validation failed",
   "data": {
     "errors": [
-      { "field": "type", "message": "Material type must be one of: PLA, ABS, Resin, TPU, PETG" },
+      { "field": "type", "message": "Material type must be one of: PLA, ABS, RESIN, TPU, PETG" },
       { "field": "color", "message": "color is required" }
     ]
   }
@@ -430,7 +430,7 @@ Represents a 3D printing material with pricing and availability information.
 
 - **`_id`** — MongoDB ObjectId (used as `id` in all responses)
 - **`name`** — String (descriptive display name, e.g., "PLA White Filament", "Premium ABS Black")
-- **`type`** — Enum: `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"` (stored in uppercase)
+- **`type`** — Enum: `"PLA"` | `"ABS"` | `"RESIN"` | `"TPU"` | `"PETG"` (stored in uppercase)
 - **`color`** — String (required, color name e.g., "White", "Black", "Red", "Gold", "Transparent")
 - **`currentPricePerGram`** — Number (price per gram, must be >= 0)
 - **`isActive`** — Boolean (whether material is available for use, default: `true`)
@@ -546,7 +546,7 @@ Authorization: Bearer <admin-token>
 2. **Color Names**: Use standard color names (e.g., "White", "Black", "Red", "Blue", "Gold", "Silver", "Transparent") for consistency
 3. **Soft Delete First**: Use `isActive: false` instead of deleting materials that are referenced in historical slicing jobs
 4. **Price Updates**: Update `currentPricePerGram` carefully as it affects all new slicing job calculations
-5. **Material Types**: Stick to the predefined material types (PLA, ABS, PETG, TPU, Resin) for consistency
+5. **Material Types**: Stick to the predefined material types (PLA, ABS, PETG, TPU, RESIN) for consistency
 6. **Descriptive Names**: Use descriptive names that include both type and color (e.g., "PLA White Filament", "ABS Black Premium")
 7. **Validation**: Always validate material type AND color availability before creating slicing jobs
 8. **Seeding**: Use the seed script (`npm run seed:materials`) to populate the database with standard materials

@@ -1,0 +1,15 @@
+refactor: standardize material type enum to uppercase (Resin → RESIN)
+
+Fix inconsistent material type casing by changing "Resin" to "RESIN" to match other material types (PLA, ABS, TPU, PETG).
+
+Changes:
+- Update Material model enum from "Resin" to "RESIN"
+- Add uppercase: true to Material schema type field for automatic normalization
+- Remove special case handling from MaterialService
+- Update seed file to use "RESIN" instead of "Resin"
+- Update all documentation references (README, materials, slicing, designs, cart)
+
+Breaking change: Requires running seed script to update existing materials
+Run: npm run seed:materials
+
+Fixes validation error where "Resin" input was normalized to "RESIN" but database stored "Resin"

@@ -277,7 +277,7 @@ Complete shapes of all MongoDB documents returned by the API.
   - **`volumeCm3`** — Number (positive)
   - **`dimensions`** — Object with `x`, `y`, `z` (all positive numbers, in mm)
   - **`estimatedPrintTime`** — Number (positive, in minutes)
-  - **`supportedMaterials`** — Array of `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"`
+  - **`supportedMaterials`** — Array of `"PLA"` | `"ABS"` | `"RESIN"` | `"TPU"` | `"PETG"`
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 ### Cart
@@ -394,7 +394,7 @@ Complete shapes of all MongoDB documents returned by the API.
 
 - **`_id`** — MongoDB ObjectId
 - **`name`** — String (descriptive name, e.g., "PLA White Filament")
-- **`type`** — `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"` (stored in uppercase)
+- **`type`** — `"PLA"` | `"ABS"` | `"RESIN"` | `"TPU"` | `"PETG"` (stored in uppercase)
 - **`color`** — String (required, color name like "White", "Black", "Red")
 - **`currentPricePerGram`** — Number (≥ 0)
 - **`isActive`** — Boolean (default: `true`)

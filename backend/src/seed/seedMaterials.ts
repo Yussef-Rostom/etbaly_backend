@@ -15,7 +15,7 @@ import { Material } from "#src/models/Material";
 
 interface MaterialSeed {
   name: string;
-  type: "PLA" | "ABS" | "PETG" | "TPU" | "Resin";
+  type: "PLA" | "ABS" | "PETG" | "TPU" | "RESIN";
   color: string;
   currentPricePerGram: number;
   isActive: boolean;
@@ -68,14 +68,14 @@ const materials: MaterialSeed[] = [
   { name: "TPU Yellow Flexible", type: "TPU", color: "Yellow", currentPricePerGram: 0.047, isActive: true },
   { name: "TPU Transparent Flexible", type: "TPU", color: "Transparent", currentPricePerGram: 0.050, isActive: true },
 
-  // ── Resin ─────────────────────────────────────────────────────────────────
-  { name: "Standard Resin White", type: "Resin", color: "White", currentPricePerGram: 0.060, isActive: true },
-  { name: "Standard Resin Black", type: "Resin", color: "Black", currentPricePerGram: 0.060, isActive: true },
-  { name: "Standard Resin Gray", type: "Resin", color: "Gray", currentPricePerGram: 0.058, isActive: true },
-  { name: "Standard Resin Transparent", type: "Resin", color: "Transparent", currentPricePerGram: 0.065, isActive: true },
-  { name: "Standard Resin Beige", type: "Resin", color: "Beige", currentPricePerGram: 0.060, isActive: true },
-  { name: "Standard Resin Blue", type: "Resin", color: "Blue", currentPricePerGram: 0.062, isActive: true },
-  { name: "Standard Resin Green", type: "Resin", color: "Green", currentPricePerGram: 0.062, isActive: true },
+  // ── RESIN ────────────────────────────────────────────────────────────────
+  { name: "Standard Resin White", type: "RESIN", color: "White", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Black", type: "RESIN", color: "Black", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Gray", type: "RESIN", color: "Gray", currentPricePerGram: 0.058, isActive: true },
+  { name: "Standard Resin Transparent", type: "RESIN", color: "Transparent", currentPricePerGram: 0.065, isActive: true },
+  { name: "Standard Resin Beige", type: "RESIN", color: "Beige", currentPricePerGram: 0.060, isActive: true },
+  { name: "Standard Resin Blue", type: "RESIN", color: "Blue", currentPricePerGram: 0.062, isActive: true },
+  { name: "Standard Resin Green", type: "RESIN", color: "Green", currentPricePerGram: 0.062, isActive: true },
 ];
 
 async function seed() {

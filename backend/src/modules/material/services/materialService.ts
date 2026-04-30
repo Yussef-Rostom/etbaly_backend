@@ -5,7 +5,7 @@ export class MaterialService {
   /**
    * Validates that a material with specific type and color exists and is active
    * 
-   * @param materialType - Material type to validate (case-insensitive)
+   * @param materialType - Material type to validate (case-insensitive, will be normalized to uppercase)
    * @param color - Color to validate (required)
    * @returns The validated material document
    * @throws AppError if material is not found or inactive
@@ -74,7 +74,7 @@ export class MaterialService {
   /**
    * Gets a single material by type
    * 
-   * @param type - Material type (case-insensitive)
+   * @param type - Material type (case-insensitive, will be normalized to uppercase)
    * @returns Material document or null
    */
   static async getMaterialByType(type: string): Promise<IMaterial | null> {
@@ -95,6 +95,7 @@ export class MaterialService {
    * 
    * @param data - Material data
    * @returns Created material document
+   * @note Material type will be automatically converted to uppercase by the schema
    */
   static async createMaterial(data: {
     name: string;
@@ -103,10 +104,7 @@ export class MaterialService {
     color: string;
     isActive?: boolean;
   }): Promise<IMaterial> {
-    const material = new Material({
-      ...data,
-      type: data.type.toUpperCase(),
-    });
+    const material = new Material(data);
     return await material.save();
   }
 

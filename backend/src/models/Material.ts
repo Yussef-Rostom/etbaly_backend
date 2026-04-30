@@ -2,7 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IMaterial extends Document {
   name: string; // Descriptive name like "Standard PLA Filament"
-  type: "PLA" | "ABS" | "Resin" | "TPU" | "PETG";
+  type: "PLA" | "ABS" | "RESIN" | "TPU" | "PETG";
   currentPricePerGram: number;
   color: string; // Color name like "White", "Black", "Red"
   isActive: boolean;
@@ -19,8 +19,9 @@ const materialSchema = new Schema<IMaterial>(
     },
     type: {
       type: String,
-      enum: ["PLA", "ABS", "Resin", "TPU", "PETG"],
+      enum: ["PLA", "ABS", "RESIN", "TPU", "PETG"],
       required: [true, "Material type is required"],
+      uppercase: true,
       index: true,
     },
     currentPricePerGram: {

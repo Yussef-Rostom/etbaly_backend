@@ -51,7 +51,7 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
 
 - **`material`** (*string*, Required)
   - *Validation:* Must be an active material type in the system (case-insensitive)
-  - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "TPU", "Resin")
+  - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "TPU", "RESIN")
   - *Note:* Use `GET /api/v1/materials` to get available materials
 
 - **`color`** (*string*, Required)
@@ -127,7 +127,7 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
 ```json
 {
   "success": false,
-  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, Resin"
+  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, RESIN"
 }
 ```
 
@@ -398,7 +398,7 @@ Authorization: Bearer <token>
 # Response: Error
 {
   "success": false,
-  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, Resin"
+  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, RESIN"
 }
 
 # Same request again (after first job completes)

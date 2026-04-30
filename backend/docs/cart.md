@@ -187,7 +187,7 @@ Adds an item to the cart. If an item with the same configuration already exists,
   - *Description:* 3D printing configuration for this item
   - **`material`** (*string*, Required)
     - *Validation:* Must be an active material type in the system
-    - *Description:* Material type (e.g., "PLA", "ABS", "PETG", "TPU", "Resin")
+    - *Description:* Material type (e.g., "PLA", "ABS", "PETG", "TPU", "RESIN")
   - **`color`** (*string*, Required)
     - *Validation:* Non-empty string, trimmed
     - *Description:* Color name (e.g., "White", "Black", "Red", "Blue", "Gold")

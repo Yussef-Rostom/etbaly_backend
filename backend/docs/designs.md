@@ -87,7 +87,7 @@ Creates a new design record. Obtain the `fileUrl` from the upload endpoint first
     - **`y`** (*number*, Optional) — Must be positive; depth in mm
     - **`z`** (*number*, Optional) — Must be positive; height in mm
   - **`estimatedPrintTime`** (*number*, Optional) — Must be positive; minutes
-  - **`supportedMaterials`** (*array of strings*, Required) — Min 1 item; `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"`
+  - **`supportedMaterials`** (*array of strings*, Required) — Min 1 item; `"PLA"` | `"ABS"` | `"RESIN"` | `"TPU"` | `"PETG"`
 
 - **`isPrintable`** (*boolean*, Optional) — Default: `false`
 
