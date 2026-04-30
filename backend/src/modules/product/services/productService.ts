@@ -21,7 +21,7 @@ export class ProductService {
       .search(searchFields);
 
     const [products, total] = await Promise.all([
-      features.query.select('-isActive -stockLevel -gcodeUrl -linkedDesignId -isPrintingReady'),
+      features.query.select('-isActive -stockLevel -gcodeUrl -isPrintingReady'),
       countFeatures.query.countDocuments(),
     ]);
 
@@ -30,7 +30,7 @@ export class ProductService {
 
   static async getActiveProductById(productId: string): Promise<IProduct> {
     const product = await Product.findOne({ _id: productId, isActive: true })
-      .select('-isActive -stockLevel -gcodeUrl -linkedDesignId -isPrintingReady');
+      .select('-isActive -stockLevel -gcodeUrl -isPrintingReady');
     if (!product) {
       throw new AppError("Product not found or not currently active.", 404);
     }
