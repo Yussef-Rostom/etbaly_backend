@@ -4,6 +4,7 @@ import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
 import { SlicingJobData } from "#src/workers/registry";
 import { sendSuccess } from "#src/utils/apiResponse";
 import { SlicingService } from "#src/modules/slicing/services/slicingService";
+import { MaterialService } from "#src/modules/material/services/materialService";
 import { Design } from "#src/models/Design";
 import { AppError } from "#src/utils/AppError";
 import { getAuthUser } from "#src/middlewares/authMiddleware";
@@ -17,7 +18,7 @@ export class SlicingController {
    */
   public static executeSlicingJob = catchAsync(
     async (req: Request, res: Response): Promise<void> => {
-      const { designId } = req.body;
+      const { designId, material, color, preset, scale } = req.body;
       const user = getAuthUser(req);
 
       // Fetch the design
@@ -26,11 +27,48 @@ export class SlicingController {
         throw new AppError("Design not found", 404);
       }
 
+      // Validate material if provided
+      let normalizedMaterial = "PLA"; // Default
+      if (material) {
+        const validatedMaterial = await MaterialService.validateMaterial(material);
+        normalizedMaterial = validatedMaterial.type;
+      }
+
+      // Check for existing completed job with same parameters
+      const existingJob = await SlicingService.findExistingCompletedJob(
+        new mongoose.Types.ObjectId(designId),
+        normalizedMaterial,
+        preset,
+        scale
+      );
+
+      if (existingJob) {
+        console.log(`♻️  Reusing existing slicing job ${existingJob._id} for design ${design.name}`);
+        
+        sendSuccess(res, 200, `Slicing job already exists for design ${design.name} with these parameters.`, {
+          jobId: existingJob._id,
+          status: existingJob.status,
+          designId: design._id,
+          designName: design.name,
+          gcodeUrl: existingJob.gcodeUrl,
+          weight: existingJob.weight,
+          dimensions: existingJob.dimensions,
+          printTime: existingJob.printTime,
+          calculatedPrice: existingJob.calculatedPrice,
+          reused: true,
+        });
+        return;
+      }
+
       // Create SlicingJob document with status "Queued"
       const slicingJob = await SlicingService.createSlicingJob({
         designId: new mongoose.Types.ObjectId(designId),
         fileName: design.name,
         stlFileUrl: design.fileUrl,
+        material: normalizedMaterial,
+        color,
+        preset,
+        scale,
         operatorId: user._id,
       });
 
@@ -39,12 +77,12 @@ export class SlicingController {
       const jobData: SlicingJobData = {
         stlUrl: design.fileUrl,
         designId: slicingJob._id.toString(),
-        material: req.body.material || 'PLA',
-        color: req.body.color,
+        material: normalizedMaterial,
+        color,
         ownerId: user._id.toString(),
         jobId: slicingJob._id.toString(),
-        ...(req.body.preset && { preset: req.body.preset }),
-        ...(req.body.scale !== undefined && { scale: req.body.scale }),
+        ...(preset && { preset }),
+        ...(scale !== undefined && { scale }),
       };
       
       await slicingQueue.add("slice-model", jobData);
@@ -54,6 +92,7 @@ export class SlicingController {
         status: slicingJob.status,
         designId: design._id,
         designName: design.name,
+        reused: false,
       });
     },
   );

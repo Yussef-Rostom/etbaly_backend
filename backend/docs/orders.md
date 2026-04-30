@@ -2,6 +2,41 @@
 
 # Module: Orders
 
+Base path: `/api/v1/orders` (User) and `/api/v1/admin/orders` (Admin)
+
+All routes require authentication. Users see their own orders, admins see all orders.
+
+---
+
+## Overview
+
+The orders module manages the complete order lifecycle from creation to fulfillment. Orders are created from cart contents and progress through multiple status stages.
+
+**Key Features:**
+- Create orders from cart contents
+- Track order status (Pending → Processing → Shipped → Delivered)
+- Payment integration
+- Shipping address management
+- Order history and details
+- Admin order management
+
+**Order Status Flow:**
+```
+Pending → Processing → Shipped → Delivered
+       → Cancelled (at any stage before Shipped)
+```
+
+**Workflow:**
+```
+1. User creates order from cart
+2. System calculates total with shipping
+3. Payment processed
+4. Order status: Pending
+5. Admin processes order → Processing
+6. Admin ships order → Shipped
+7. Order delivered → Delivered
+```
+
 ---
 
 ## User Endpoints

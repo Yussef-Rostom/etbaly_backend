@@ -7,6 +7,10 @@ export interface CreateSlicingJobInput {
   targetOrderItemId?: mongoose.Types.ObjectId;
   stlFileUrl?: string;
   fileName?: string;
+  material?: string;
+  color?: string;
+  preset?: string;
+  scale?: number;
   orderId?: mongoose.Types.ObjectId;
   operatorId?: mongoose.Types.ObjectId;
 }
@@ -21,6 +25,52 @@ export interface SlicingJobFilters {
 export type SlicingJobStatus = "Queued" | "Processing" | "Completed" | "Failed";
 
 export class SlicingService {
+  /**
+   * Finds an existing completed slicing job with the same parameters
+   * This avoids redundant slicing operations for identical requests
+   * 
+   * @param designId - The design ID
+   * @param material - Material type (normalized to uppercase)
+   * @param preset - Slicing preset
+   * @param scale - Scale percentage
+   * @returns Existing completed SlicingJob or null
+   */
+  static async findExistingCompletedJob(
+    designId: mongoose.Types.ObjectId,
+    material?: string,
+    preset?: string,
+    scale?: number
+  ): Promise<ISlicingJob | null> {
+    const query: any = {
+      designId,
+      status: "Completed",
+    };
+
+    // Normalize material to uppercase for comparison (PLA, ABS, etc.)
+    if (material) {
+      query.material = material.toUpperCase();
+    } else {
+      query.material = { $in: [null, "PLA"] }; // Default material
+    }
+
+    // Handle preset (can be null for default)
+    if (preset) {
+      query.preset = preset;
+    } else {
+      query.preset = null;
+    }
+
+    // Handle scale (can be null/undefined for default 100%)
+    if (scale !== undefined && scale !== null && scale !== 100) {
+      query.scale = scale;
+    } else {
+      query.scale = { $in: [null, 100] }; // Default scale
+    }
+
+    // Find the most recent matching job
+    return await SlicingJob.findOne(query).sort({ createdAt: -1 });
+  }
+
   /**
    * Creates a new SlicingJob document
    * 

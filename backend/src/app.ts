@@ -18,6 +18,8 @@ import designAdminRoutes from "#src/modules/design/routes/designAdminRoutes";
 import aiGenerationRoutes from "#src/modules/ai/routes/aiGenerationRoutes";
 import aiAdminRoutes from "#src/modules/ai/routes/aiAdminRoutes";
 import fileRoutes from "#src/modules/files/routes/fileRoutes";
+import materialRoutes from "#src/modules/material/routes/materialRoutes";
+import materialAdminRoutes from "#src/modules/material/routes/materialAdminRoutes";
 import { globalErrorHandler } from "#src/middlewares/errorHandler";
 import { AppError } from "#src/utils/AppError";
 import { env } from "#src/configs/envConfig";
@@ -76,6 +78,7 @@ app.use("/api/v1/ai", aiGenerationRoutes);
 app.use("/api/v1/files", fileRoutes);
 app.use("/api/v1/slicing", slicingRoutes);
 app.use("/api/v1/printing", printingRoutes);
+app.use("/api/v1/materials", materialRoutes);
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
 app.use("/api/v1/admin/users", userAdminRoutes);
@@ -84,6 +87,7 @@ app.use("/api/v1/admin/printing", printingRoutes);
 app.use("/api/v1/admin/designs", designAdminRoutes);
 app.use("/api/v1/admin/orders", orderAdminRoutes);
 app.use("/api/v1/admin/ai", aiAdminRoutes);
+app.use("/api/v1/admin/materials", materialAdminRoutes);
 
 app.use((req: Request, _res: Response) => {
   throw new AppError(

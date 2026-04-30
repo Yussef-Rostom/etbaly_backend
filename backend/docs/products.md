@@ -2,6 +2,33 @@
 
 # Module: Products
 
+Base path: `/api/v1/products` (Public) and `/api/v1/admin/products` (Admin)
+
+Public routes are accessible without authentication. Admin routes require admin role.
+
+---
+
+## Overview
+
+The products module manages the product catalog including pre-designed 3D printable items. Products can be browsed publicly and managed by admins.
+
+**Key Features:**
+- Public product catalog with pagination and filtering
+- Product search by name and price range
+- Product customization options (material, color, scale)
+- Admin product management (CRUD operations)
+- Image upload and management
+- Active/inactive product status
+
+**Workflow:**
+```
+1. Admin creates product with details and images
+2. Product appears in public catalog
+3. Users browse and filter products
+4. Users add products to cart with customizations
+5. Admin can update or deactivate products
+```
+
 ---
 
 ## Public Endpoints

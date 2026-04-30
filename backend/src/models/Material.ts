@@ -4,7 +4,7 @@ export interface IMaterial extends Document {
   name: string;
   type: "PLA" | "ABS" | "Resin" | "TPU" | "PETG";
   currentPricePerGram: number;
-  colorHex?: string;
+  color?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -28,7 +28,7 @@ const materialSchema = new Schema<IMaterial>(
       required: [true, "Current price per gram is required"],
       min: [0, "Price cannot be negative"],
     },
-    colorHex: {
+    color: {
       type: String,
       trim: true,
     },

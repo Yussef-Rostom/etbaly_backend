@@ -7,6 +7,10 @@ export interface ISlicingJob extends Document {
   stlFileUrl?: string;
   gcodeUrl?: string;
   fileName?: string;
+  material?: string; // Material type used for slicing
+  color?: string; // Filament color (informational)
+  preset?: string; // Slicing preset (heavy, normal, draft)
+  scale?: number; // Scale percentage
   weight?: number; // Weight in grams
   dimensions?: {
     width: number;
@@ -53,6 +57,26 @@ const slicingJobSchema = new Schema<ISlicingJob>(
       type: String,
       trim: true,
     },
+    material: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+    color: {
+      type: String,
+      trim: true,
+    },
+    preset: {
+      type: String,
+      trim: true,
+      enum: ["heavy", "normal", "draft", null],
+      index: true,
+    },
+    scale: {
+      type: Number,
+      min: 1,
+      max: 1000,
+    },
     weight: {
       type: Number,
       min: 0,
@@ -95,6 +119,15 @@ const slicingJobSchema = new Schema<ISlicingJob>(
     timestamps: true,
   },
 );
+
+// Compound index for finding existing slicing jobs with same parameters
+slicingJobSchema.index({ 
+  designId: 1, 
+  material: 1, 
+  preset: 1, 
+  scale: 1,
+  status: 1 
+});
 
 // Pre-validation hook to ensure designId is provided
 slicingJobSchema.pre('validate', function() {

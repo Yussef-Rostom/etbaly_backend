@@ -17,6 +17,8 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 - Real-time status tracking through SlicingJob model
 - Queue management with Redis-backed BullMQ
 - Automatic retry logic and failure tracking
+- **Smart job deduplication**: Reuses existing completed jobs with identical parameters
+- Cost optimization by avoiding redundant slicing operations
 - Automatic fallback to mock simulation if worker server is unavailable
 
 **Workflow:**
@@ -38,7 +40,7 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 
 - **Access:** Authenticated Users
 
-Creates a SlicingJob and dispatches it to the automated slicing queue for processing.
+Creates a SlicingJob and dispatches it to the automated slicing queue for processing. Validates that the specified material exists and is active in the system.
 
 **Request Body (JSON)**
 
@@ -47,9 +49,10 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   - *Description:* The ID of the design to slice (must exist in the Design collection)
 
 - **`material`** (*string*, Optional)
-  - *Validation:* Non-empty string, trimmed
-  - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "PLA+")
+  - *Validation:* Must be an active material type in the system (case-insensitive)
+  - *Description:* Material type for slicing (e.g., "PLA", "ABS", "PETG", "TPU", "Resin")
   - *Default:* "PLA"
+  - *Note:* Use `GET /api/v1/materials` to get available materials
 
 - **`color`** (*string*, Optional)
   - *Validation:* Non-empty string, trimmed
@@ -67,7 +70,7 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
   - *Validation:* Number between 1 and 1000 (percentage)
   - *Description:* Scale percentage for the model (e.g., `100` = original size, `50` = half size, `200` = double size)
 
-**Response 200 — OK**
+**Response 200 — OK (New Job)**
 ```json
 {
   "success": true,
@@ -76,7 +79,32 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
     "status": "Queued",
     "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
-    "designName": "My Awesome Model"
+    "designName": "My Awesome Model",
+    "reused": false
+  }
+}
+```
+
+**Response 200 — OK (Existing Job Reused)**
+```json
+{
+  "success": true,
+  "message": "Slicing job already exists for design My Awesome Model with these parameters.",
+  "data": {
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "status": "Completed",
+    "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
+    "designName": "My Awesome Model",
+    "gcodeUrl": "https://storage.example.com/gcode/model_123.gcode",
+    "weight": 45.5,
+    "dimensions": {
+      "width": 100,
+      "height": 50,
+      "depth": 75
+    },
+    "printTime": 180,
+    "calculatedPrice": 31.14,
+    "reused": true
   }
 }
 ```
@@ -91,6 +119,14 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
       { "field": "designId", "message": "designId must be a valid MongoDB ObjectId" }
     ]
   }
+}
+```
+
+**Response 400 — Invalid Material**
+```json
+{
+  "success": false,
+  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, Resin"
 }
 ```
 
@@ -169,6 +205,10 @@ Retrieves the current status and details of a slicing job.
 
 ---
 
+**Note:** For material information, see the [Materials Module](./materials.md). Use `GET /api/v1/materials` to retrieve available materials.
+
+---
+
 ## Data Model
 
 ### SlicingJob
@@ -186,6 +226,10 @@ Represents an automated slicing operation that converts STL files to G-code.
 - **`stlFileUrl`** — Optional string (URL to input STL file from Google Drive)
 - **`gcodeUrl`** — Optional string (URL to generated G-code file, set on completion)
 - **`fileName`** — Optional string (original file name)
+- **`material`** — Optional string (material type: PLA, ABS, PETG, etc., stored in uppercase)
+- **`color`** — Optional string (filament color, informational)
+- **`preset`** — Optional string (slicing preset: heavy, normal, draft)
+- **`scale`** — Optional number (scale percentage: 1-1000, default 100)
 - **`weight`** — Optional number (weight in grams, set on completion)
 - **`dimensions`** — Optional object (dimensions in mm, set on completion)
   - **`width`** — number
@@ -196,6 +240,10 @@ Represents an automated slicing operation that converts STL files to G-code.
 - **`startedAt`** — Optional Date (set by worker when processing begins)
 - **`finishedAt`** — Optional Date (set by worker on completion or failure)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
+
+**Indexes:**
+- Single indexes: `designId`, `orderId`, `status`, `material`, `preset`
+- Compound index: `(designId, material, preset, scale, status)` for efficient deduplication
 
 **Status Flow:**
 ```
@@ -212,7 +260,12 @@ Queued → Processing → Completed
 **Step 1: Job Creation**
 - User calls `POST /execute` with `designId` and optional `material`, `preset`, `scale`
 - System validates the design exists
+- **System checks for existing completed job with identical parameters**
+  - Parameters checked: designId, material, preset, scale
+  - If found: Returns existing job immediately with `reused: true`
+  - If not found: Proceeds to create new job
 - System creates SlicingJob document with status `"Queued"`, copying `fileUrl` and `name` from the Design
+- System stores slicing parameters (material, color, preset, scale) for future deduplication
 - Job dispatched to SLICING queue with `jobId` = SlicingJob `_id`
 
 **Step 2: Processing**
@@ -290,6 +343,22 @@ Price = (weight × material.currentPricePerGram) + (printTime / 60 × PRINTING_H
 ## Example Usage
 
 ```bash
+# Get available materials first
+GET /api/v1/materials
+Authorization: Bearer <token>
+
+# Response:
+{
+  "success": true,
+  "data": {
+    "materials": [
+      { "type": "PLA", "name": "PLA Filament", "pricePerGram": 0.025 },
+      { "type": "ABS", "name": "ABS Filament", "pricePerGram": 0.030 },
+      { "type": "PETG", "name": "PETG Filament", "pricePerGram": 0.028 }
+    ]
+  }
+}
+
 # Basic example (with defaults)
 POST /api/v1/slicing/execute
 Authorization: Bearer <token>
@@ -297,6 +366,57 @@ Authorization: Bearer <token>
 {
   "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
   "material": "PLA"
+}
+
+# Response: New job created
+{
+  "success": true,
+  "message": "Slicing job for design My Model dispatched successfully.",
+  "data": {
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "status": "Queued",
+    "reused": false
+  }
+}
+
+# Invalid material example
+POST /api/v1/slicing/execute
+Authorization: Bearer <token>
+
+{
+  "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
+  "material": "NYLON"
+}
+
+# Response: Error
+{
+  "success": false,
+  "message": "Material \"NYLON\" is not available. Available materials: PLA, ABS, PETG, TPU, Resin"
+}
+
+# Same request again (after first job completes)
+POST /api/v1/slicing/execute
+Authorization: Bearer <token>
+
+{
+  "designId": "64f1a2b3c4d5e6f7a8b9c0d2",
+  "material": "PLA"
+}
+
+# Response: Existing job reused (instant response, no processing)
+{
+  "success": true,
+  "message": "Slicing job already exists for design My Model with these parameters.",
+  "data": {
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "status": "Completed",
+    "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
+    "weight": 45.5,
+    "dimensions": { "width": 100, "height": 50, "depth": 75 },
+    "printTime": 180,
+    "calculatedPrice": 31.14,
+    "reused": true
+  }
 }
 
 # Advanced example (with all options)

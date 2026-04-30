@@ -8,6 +8,30 @@ All routes in this module are **Public** — no authentication required.
 
 ---
 
+## Overview
+
+The authentication module handles user registration, login, email verification, and password management. All authentication endpoints are public and use JWT tokens for session management.
+
+**Key Features:**
+- User registration with email verification via OTP
+- Secure login with JWT token generation
+- Email verification system
+- Password reset functionality
+- OTP-based verification
+- Role-based access control (client, operator, admin)
+
+**Workflow:**
+```
+1. User registers → OTP sent to email
+2. User verifies email with OTP → Account activated
+3. User logs in → JWT token issued
+4. User includes token in Authorization header for protected routes
+```
+
+---
+
+## Endpoints
+
 ### `POST /api/v1/auth/register`
 
 - **Access:** Public

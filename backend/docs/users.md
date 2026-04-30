@@ -2,6 +2,37 @@
 
 # Module: Users
 
+Base path: `/api/v1/users` (Client), `/api/v1/admin/users` (Admin)
+
+All routes require authentication. Client routes are available to all authenticated users. Admin routes require the `admin` role.
+
+---
+
+## Overview
+
+The users module manages user profiles, authentication data, and administrative user operations. It provides self-service profile management for all users and comprehensive user administration for admins.
+
+**Key Features:**
+- Self-service profile management (view, update, password change)
+- Avatar upload with Google Drive integration
+- Saved addresses management for checkout
+- Admin user listing with filtering, sorting, and pagination
+- Role-based access control (client, admin, operator)
+- Secure password change with token invalidation
+
+**Workflow:**
+```
+User Registration (via Auth module)
+  ↓
+User Profile Created (default role: client)
+  ↓
+User Updates Profile (PATCH /me)
+  ↓
+User Uploads Avatar (PATCH /me/avatar)
+  ↓
+Admin Can Manage Users (GET /admin/users, PATCH /admin/users/:id/role, DELETE /admin/users/:id)
+```
+
 ---
 
 ## Client Endpoints

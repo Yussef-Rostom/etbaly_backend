@@ -17,6 +17,7 @@
 - [Designs](./designs.md) — Authenticated design access and admin design CRUD
 - [Cart](./cart.md) — Cart management and checkout
 - [Orders](./orders.md) — Order history, order tracking, and admin order management
+- [Materials](./materials.md) — Material catalog and pricing management for 3D printing
 - [Slicing](./slicing.md) — Automated slicing job management (STL to G-code conversion) with weight, dimensions, print time, and price calculation
 - [Printing](./printing.md) — Manual printing job workflow with approval and execution
 - [AI Generation](./ai.md) — Lightning AI service URL management for AI-powered content generation
@@ -386,6 +387,6 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`name`** — Unique string
 - **`type`** — `"PLA"` | `"ABS"` | `"Resin"` | `"TPU"` | `"PETG"`
 - **`currentPricePerGram`** — Number (≥ 0)
-- **`colorHex`** — Optional string (hex color code)
+- **`color`** — Optional string (color name)
 - **`isActive`** — Boolean (default: `true`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps

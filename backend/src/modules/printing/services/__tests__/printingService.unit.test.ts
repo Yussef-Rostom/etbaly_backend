@@ -15,8 +15,9 @@ describe("PrintingService", () => {
     it("should create a printing job with Pending Review status", async () => {
       const mockJobData = {
         jobNumber: "PRINT-001",
-        productId: new mongoose.Types.ObjectId(),
+        slicingJobId: new mongoose.Types.ObjectId(),
         gcodeUrl: "https://example.com/file.gcode",
+        fileName: "test.gcode",
       };
 
       const mockSavedJob = {
@@ -43,7 +44,9 @@ describe("PrintingService", () => {
     it("should throw AppError on duplicate job number", async () => {
       const mockJobData = {
         jobNumber: "PRINT-001",
-        productId: new mongoose.Types.ObjectId(),
+        slicingJobId: new mongoose.Types.ObjectId(),
+        gcodeUrl: "https://example.com/gcode.gcode",
+        fileName: "test.gcode",
       };
 
       const mockSave = jest.fn().mockRejectedValue({ code: 11000 });
@@ -60,7 +63,9 @@ describe("PrintingService", () => {
     it("should throw AppError on validation error", async () => {
       const mockJobData = {
         jobNumber: "PRINT-001",
-        productId: new mongoose.Types.ObjectId(),
+        slicingJobId: new mongoose.Types.ObjectId(),
+        gcodeUrl: "https://example.com/gcode.gcode",
+        fileName: "test.gcode",
       };
 
       const mockSave = jest.fn().mockRejectedValue({

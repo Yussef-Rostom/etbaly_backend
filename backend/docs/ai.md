@@ -2,6 +2,50 @@
 
 # Module: AI Generation
 
+Base path: `/api/v1/ai` (Public), `/api/v1/admin/ai` (Admin)
+
+All routes require authentication. Public routes are available to all authenticated users. Admin routes require the `admin` role.
+
+---
+
+## Overview
+
+The AI generation module provides AI-powered content creation capabilities through integration with Lightning AI services. It supports both image-to-3D model conversion and text-to-image generation via asynchronous job processing.
+
+**Key Features:**
+- Image-to-3D model conversion using Lightning AI
+- Text-to-image generation from prompts
+- Asynchronous job processing with BullMQ
+- Real-time job status tracking
+- Automatic Google Drive storage integration
+- Design ownership and access control
+- Admin configuration of Lightning AI service endpoints
+- Redis caching for service URLs (1-hour TTL)
+
+**Workflow (Image-to-3D):**
+```
+1. User uploads image via POST /image-to-3d
+2. System creates job in AI_GENERATION queue
+3. Returns jobId immediately
+4. BullMQ worker processes job asynchronously
+5. Worker calls Lightning AI service
+6. Worker creates Design document with generated 3D model
+7. User polls GET /job/:queueName/:jobId for status
+8. On completion, user receives designId and file URLs
+```
+
+**Workflow (Text-to-Image):**
+```
+1. User submits prompt via POST /text-to-image
+2. System creates job in TEXT_TO_IMAGE queue
+3. Returns jobId immediately
+4. BullMQ worker processes job asynchronously
+5. Worker calls Lightning AI service
+6. Worker uploads generated image to Google Drive
+7. User polls GET /job/:queueName/:jobId for status
+8. On completion, user receives image file ID and URL
+```
+
 ---
 
 ## Public Endpoints

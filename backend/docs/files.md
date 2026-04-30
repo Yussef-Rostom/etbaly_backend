@@ -2,6 +2,39 @@
 
 # Module: Files
 
+Base path: `/api/v1/files`
+
+Routes have minimal authentication constraints and are primarily used for proxying Google Drive content.
+
+---
+
+## Overview
+
+The files module provides a proxy service for Google Drive files to bypass CORS restrictions and authentication issues on the frontend. This enables seamless display of private images, 3D models, and other file types stored in Google Drive.
+
+**Key Features:**
+- CORS-free access to Google Drive files
+- Automatic content-type detection and forwarding
+- Support for all file types (images, 3D models, documents)
+- No authentication required (relies on Google Drive URL validity)
+- Direct binary streaming for optimal performance
+
+**Workflow:**
+```
+1. Frontend needs to display a Google Drive file
+2. Frontend calls GET /proxy?url=<drive-url>
+3. Backend fetches file from Google Drive
+4. Backend streams file to frontend with proper headers
+5. Frontend displays/uses the file without CORS issues
+```
+
+**Use Cases:**
+- Displaying user avatars stored in Google Drive
+- Rendering 3D model previews in the browser
+- Showing design thumbnails
+- Accessing G-code files for printing
+- Viewing uploaded STL files
+
 ---
 
 ## Public Endpoints

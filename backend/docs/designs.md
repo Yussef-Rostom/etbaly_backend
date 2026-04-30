@@ -2,13 +2,38 @@
 
 # Module: Designs
 
+Base path: `/api/v1/designs` (Client) and `/api/v1/admin/designs` (Admin)
+
+All routes require authentication. Visibility is role-scoped — admins see all designs, clients see only their own.
+
+---
+
+## Overview
+
+The designs module manages 3D design files and their metadata. Designs can be uploaded, listed, retrieved, and deleted. Files are stored in Google Drive and referenced in the database.
+
+**Key Features:**
+- Upload 3D design files (STL, OBJ, 3MF) to Google Drive
+- Automatic file validation and size limits (50MB)
+- Role-based visibility (users see their own, admins see all)
+- Integration with slicing workflow
+- Metadata tracking (name, fileUrl, owner, timestamps)
+
+**Workflow:**
+```
+1. User uploads design file → Stored in Google Drive
+2. Design record created in database with fileUrl
+3. Design can be used for slicing operations
+4. Design can be listed, retrieved, or deleted
+```
+
 ---
 
 ## Client Endpoints
 
 Base path: `/api/v1/designs`
 
-All routes in this section require authentication (`Bearer <accessToken>`). Visibility is role-scoped — admins see all designs, clients see only their own.
+All routes in this section require authentication (`Bearer <accessToken>`).
 
 ---
 

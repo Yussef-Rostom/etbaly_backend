@@ -8,6 +8,31 @@ All routes require authentication (`Bearer <accessToken>`).
 
 ---
 
+## Overview
+
+The cart module manages shopping cart functionality for authenticated users. Each user has a single cart that can contain products and custom designs with customization options.
+
+**Key Features:**
+- Add products or custom designs to cart
+- Update item quantities and customizations
+- Remove items from cart
+- Automatic pricing calculation
+- Clear entire cart
+- Persistent cart storage per user
+
+**Workflow:**
+```
+1. User adds items to cart (products or designs)
+2. System calculates pricing based on customizations
+3. User can update quantities or remove items
+4. User proceeds to checkout (creates order)
+5. Cart is cleared after successful order
+```
+
+---
+
+## Endpoints
+
 ### `GET /api/v1/cart`
 
 - **Access:** Authenticated (any role)
