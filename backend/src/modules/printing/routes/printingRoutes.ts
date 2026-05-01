@@ -52,4 +52,8 @@ router
     PrintingController.failPrintingJob
   );
 
+router
+  .route("/status/:jobId")
+  .get(PrintingController.getJobById);
+
 export default router;

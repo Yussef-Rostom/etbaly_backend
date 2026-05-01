@@ -2,59 +2,8 @@ import { Request, Response } from "express";
 import { catchAsync } from "#src/utils/catchAsync";
 import { sendSuccess } from "#src/utils/apiResponse";
 import { PrintingService } from "#src/modules/printing/services/printingService";
-import { SlicingService } from "#src/modules/slicing/services/slicingService";
-import { getAuthUser } from "#src/middlewares/authMiddleware";
-import { AppError } from "#src/utils/AppError";
-import mongoose from "mongoose";
 
 export class PrintingController {
-  /**
-   * @desc    Create a printing job from a completed slicing job
-   * @route   POST /api/v1/printing/execute
-   * @access  Authenticated Users
-   */
-  public static createPrintingJob = catchAsync(
-    async (req: Request, res: Response): Promise<void> => {
-      const { slicingJobId } = req.body;
-      const user = getAuthUser(req);
-
-      // Fetch the slicing job
-      const slicingJob = await SlicingService.getSlicingJobById(slicingJobId);
-      
-      if (!slicingJob) {
-        throw new AppError("Slicing job not found", 404);
-      }
-
-      // Validate that slicing job is completed
-      if (slicingJob.status !== "Completed") {
-        throw new AppError(
-          `Slicing job must be completed before creating a printing job. Current status: ${slicingJob.status}`,
-          400
-        );
-      }
-
-      // Validate that gcodeUrl exists
-      if (!slicingJob.gcodeUrl) {
-        throw new AppError("Slicing job does not have a G-code URL", 400);
-      }
-
-      // Create PrintingJob document with status "Pending Review"
-      const printingJob = await PrintingService.createPrintingJob({
-        slicingJobId: new mongoose.Types.ObjectId(slicingJobId),
-        fileName: slicingJob.fileName || `gcode_${slicingJob._id}.gcode`,
-        gcodeUrl: slicingJob.gcodeUrl,
-        operatorId: user._id,
-      });
-
-      sendSuccess(res, 200, "PrintingJob created successfully. Awaiting review.", {
-        jobId: printingJob._id,
-        status: printingJob.status,
-        slicingJobId: slicingJob._id,
-        gcodeUrl: slicingJob.gcodeUrl,
-      });
-    },
-  );
-
   /**
    * @desc    Review a printing job (approve/reject)
    * @route   POST /api/v1/printing/review
@@ -139,9 +88,9 @@ export class PrintingController {
    */
   public static failPrintingJob = catchAsync(
     async (req: Request, res: Response): Promise<void> => {
-      const { jobId, reason } = req.body;
+      const { jobId } = req.body;
 
-      const updatedJob = await PrintingService.failPrintingJob(jobId, reason);
+      const updatedJob = await PrintingService.failPrintingJob(jobId);
 
       sendSuccess(res, 200, "PrintingJob marked as failed.", {
         jobId: updatedJob._id,
@@ -152,32 +101,20 @@ export class PrintingController {
   );
 
   /**
-   * @desc    Get the status of a printing job
+   * @desc    Get a printing job by ID with full population
    * @route   GET /api/v1/printing/status/:jobId
    * @access  Admin or Operator
    */
-  public static getPrintingJobStatus = catchAsync(
+  public static getJobById = catchAsync(
     async (req: Request, res: Response): Promise<void> => {
-      const jobId = req.params.jobId as string;
+      const job = await PrintingService.getJobById(req.params.jobId as string);
 
-      const printingJob = await PrintingService.getPrintingJobById(jobId);
-
-      if (!printingJob) {
+      if (!job) {
         sendSuccess(res, 404, "PrintingJob not found.", null);
         return;
       }
 
-      sendSuccess(res, 200, "PrintingJob status retrieved successfully.", {
-        jobId: printingJob._id,
-        status: printingJob.status,
-        gcodeUrl: printingJob.gcodeUrl,
-        machineId: printingJob.machineId,
-        fileName: printingJob.fileName,
-        startedAt: printingJob.startedAt,
-        finishedAt: printingJob.finishedAt,
-        createdAt: printingJob.createdAt,
-        updatedAt: printingJob.updatedAt,
-      });
+      sendSuccess(res, 200, "PrintingJob retrieved successfully.", { job });
     },
   );
 }

@@ -1,12 +1,10 @@
 import { Product, IProduct, validateCustomizability } from "#src/models/Product";
 import { Design } from "#src/models/Design";
 import { Upload } from "#src/models/Upload";
-import { ManufacturingJob } from "#src/models/ManufacturingJob";
+import { SlicingJob } from "#src/models/SlicingJob";
 import { AppError } from "#src/utils/AppError";
 import { uploadImage } from "#src/utils/drive";
 import { APIFeatures } from "#src/utils/apiFeatures";
-import { queueManager, QUEUE_NAMES } from "#src/utils/queueManager";
-import { SlicingJobData } from "#src/workers/registry";
 import type {
   CreateProductInput,
   UpdateProductInput,
@@ -35,39 +33,116 @@ export class ProductAdminService {
     return product;
   }
 
-  static async uploadProductImage(file: Express.Multer.File): Promise<{ fileUrl: string; fileId: string }> {
-    const { fileId, publicUrl } = await uploadImage(file.buffer, file.originalname, file.mimetype);
+  static async uploadProductImage(
+    file: Express.Multer.File,
+  ): Promise<{ fileUrl: string; fileId: string }> {
+    const { fileId, publicUrl } = await uploadImage(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
 
     await Upload.findOneAndUpdate(
       { driveFileId: fileId },
       { driveFileId: fileId, fileUrl: publicUrl, isUsed: false },
-      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
 
     return { fileUrl: publicUrl, fileId };
   }
 
+  /**
+   * Creates a product from a completed slicing job.
+   *
+   * Workflow:
+   *   1. Validate the slicing job exists and is Completed
+   *   2. Validate the linked design matches the slicing job's design
+   *   3. Copy printingProperties and slicingResult from the job
+   *   4. Persist the product with slicingJobId reference
+   *
+   * @param data - Validated product creation input (must include slicingJobId)
+   * @returns The created product document
+   */
   static async createProduct(data: CreateProductInput): Promise<IProduct> {
+    // 1. Validate slicing job
+    const slicingJob = await SlicingJob.findById(data.slicingJobId);
+    if (!slicingJob) throw new AppError("Slicing job not found.", 404);
+    if (slicingJob.status !== "Completed") {
+      throw new AppError(
+        `Slicing job must be Completed before creating a product. Current status: ${slicingJob.status}`,
+        400,
+      );
+    }
+    if (!slicingJob.gcodeUrl) {
+      throw new AppError("Slicing job is missing G-code URL.", 400);
+    }
+
+    // 2. Validate design
     const design = await Design.findById(data.linkedDesignId);
     if (!design) throw new AppError("Linked Design not found.", 404);
     if (!design.isPrintable) throw new AppError("Linked Design is not printable.", 400);
 
-    // Validate customization consistency
+    // 3. Ensure the slicing job belongs to this design
+    if (slicingJob.designId.toString() !== design._id.toString()) {
+      throw new AppError(
+        "Slicing job does not belong to the specified design.",
+        400,
+      );
+    }
+
+    // 4. Validate customization consistency
     validateCustomizability(data.isCustomizable ?? false, data.customFields);
 
+    // 5. Validate image provenance
     if (data.images?.length) {
       for (const imageUrl of data.images) {
         const tracker = await Upload.findOne({ fileUrl: imageUrl });
         if (!tracker) {
-          throw new AppError(`Image URL was not uploaded to our storage: ${imageUrl}`, 400);
+          throw new AppError(
+            `Image URL was not uploaded to our storage: ${imageUrl}`,
+            400,
+          );
         }
       }
     }
 
-    const product = await Product.create(data);
+    // 6. Derive printingProperties and slicingResult from the job
+    const printingProperties = {
+      material: slicingJob.material,
+      color: slicingJob.color,
+      scale: slicingJob.scale ?? 100,
+      preset: slicingJob.preset as "heavy" | "normal" | "draft" | undefined,
+    };
 
+    const slicingResult = {
+      gcodeUrl: slicingJob.gcodeUrl,
+      dimensions: slicingJob.dimensions ?? { width: 0, height: 0, depth: 0 },
+      weight: slicingJob.weight ?? 0,
+      printTime: slicingJob.printTime ?? 0,
+      calculatedPrice: slicingJob.calculatedPrice ?? 0,
+      slicedAt: slicingJob.finishedAt ?? new Date(),
+    };
+
+    // 7. Create product
+    const product = await Product.create({
+      name: data.name,
+      description: data.description,
+      images: data.images ?? [],
+      isActive: data.isActive ?? true,
+      linkedDesignId: design._id,
+      slicingJobId: slicingJob._id,
+      printingProperties,
+      slicingResult,
+      isCustomizable: data.isCustomizable ?? false,
+      customFields: data.customFields,
+    });
+
+    // 8. Mark images as used
     if (data.images?.length) {
-      await Upload.updateMany({ fileUrl: { $in: data.images } }, { isUsed: true });
+      await Upload.updateMany(
+        { fileUrl: { $in: data.images } },
+        { isUsed: true },
+      );
     }
 
     return product;
@@ -82,14 +157,43 @@ export class ProductAdminService {
       if (!design) throw new AppError("Linked Design not found.", 404);
     }
 
-    // Validate customization consistency if either field is being updated
+    // If slicingJobId is being updated, re-derive printingProperties + slicingResult
+    let derivedFields: Record<string, any> = {};
+    if (data.slicingJobId) {
+      const slicingJob = await SlicingJob.findById(data.slicingJobId);
+      if (!slicingJob) throw new AppError("Slicing job not found.", 404);
+      if (slicingJob.status !== "Completed") {
+        throw new AppError(
+          `Slicing job must be Completed. Current status: ${slicingJob.status}`,
+          400,
+        );
+      }
+      if (!slicingJob.gcodeUrl) {
+        throw new AppError("Slicing job is missing G-code URL.", 400);
+      }
+
+      derivedFields.printingProperties = {
+        material: slicingJob.material,
+        color: slicingJob.color,
+        scale: slicingJob.scale ?? 100,
+        preset: slicingJob.preset,
+      };
+      derivedFields.slicingResult = {
+        gcodeUrl: slicingJob.gcodeUrl,
+        dimensions: slicingJob.dimensions ?? { width: 0, height: 0, depth: 0 },
+        weight: slicingJob.weight ?? 0,
+        printTime: slicingJob.printTime ?? 0,
+        calculatedPrice: slicingJob.calculatedPrice ?? 0,
+        slicedAt: slicingJob.finishedAt ?? new Date(),
+      };
+    }
+
     if (data.isCustomizable !== undefined || data.customFields !== undefined) {
       const existingProduct = await Product.findById(productId);
       if (!existingProduct) throw new AppError("Product not found.", 404);
-      
+
       const isCustomizable = data.isCustomizable ?? existingProduct.isCustomizable;
       const customFields = data.customFields ?? existingProduct.customFields;
-      
       validateCustomizability(isCustomizable, customFields);
     }
 
@@ -97,20 +201,31 @@ export class ProductAdminService {
       for (const imageUrl of data.images) {
         const tracker = await Upload.findOne({ fileUrl: imageUrl });
         if (!tracker) {
-          throw new AppError(`Image URL was not uploaded to our storage: ${imageUrl}`, 400);
+          throw new AppError(
+            `Image URL was not uploaded to our storage: ${imageUrl}`,
+            400,
+          );
         }
       }
     }
 
-    const product = await Product.findByIdAndUpdate(productId, data, {
-      returnDocument: 'after',
-      runValidators: true,
-    }).populate("linkedDesignId", "name isPrintable fileUrl");
+    // Strip printingProperties from data (always derived from slicingJob)
+    const { ...updateData } = data as any;
+    delete updateData.printingProperties;
+
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      { ...updateData, ...derivedFields },
+      { returnDocument: "after", runValidators: true },
+    ).populate("linkedDesignId", "name isPrintable fileUrl");
 
     if (!product) throw new AppError("Product not found.", 404);
 
     if (data.images?.length) {
-      await Upload.updateMany({ fileUrl: { $in: data.images } }, { isUsed: true });
+      await Upload.updateMany(
+        { fileUrl: { $in: data.images } },
+        { isUsed: true },
+      );
     }
 
     return product;
@@ -120,118 +235,13 @@ export class ProductAdminService {
     const product = await Product.findById(productId);
     if (!product) throw new AppError("Product not found.", 404);
 
-    // Mark all product images as unused for garbage collection
     if (product.images.length) {
-      await Upload.updateMany({ fileUrl: { $in: product.images } }, { isUsed: false });
+      await Upload.updateMany(
+        { fileUrl: { $in: product.images } },
+        { isUsed: false },
+      );
     }
 
     await product.deleteOne();
   }
-
-  /**
-   * Create a product with automatic slicing job creation and dispatch.
-   * Validates linked design exists and has fileUrl, creates product record,
-   * creates ManufacturingJob with status "Queued", and dispatches job to slicing queue.
-   * Implements rollback on job creation or dispatch failure.
-   * 
-   * @param data - Product creation input data
-   * @returns Created product
-   * @throws AppError if design not found, not printable, or missing fileUrl
-   * @throws Error if job creation or dispatch fails (triggers rollback)
-   */
-  static async createProductWithSlicing(data: CreateProductInput): Promise<IProduct> {
-    // Validate design exists and has fileUrl
-    const design = await Design.findById(data.linkedDesignId);
-    if (!design) throw new AppError("Linked Design not found.", 404);
-    if (!design.isPrintable) throw new AppError("Linked Design is not printable.", 400);
-    if (!design.fileUrl) throw new AppError("Linked Design must have a file URL for slicing.", 400);
-
-    // Validate customization consistency
-    validateCustomizability(data.isCustomizable ?? false, data.customFields);
-
-    // Handle image upload tracking (existing logic)
-    if (data.images?.length) {
-      for (const imageUrl of data.images) {
-        const tracker = await Upload.findOne({ fileUrl: imageUrl });
-        if (!tracker) {
-          throw new AppError(`Image URL was not uploaded to our storage: ${imageUrl}`, 400);
-        }
-      }
-    }
-
-    // Create product record
-    const product = await Product.create(data);
-
-    try {
-      // Create ManufacturingJob with status "Queued"
-      const jobNumber = this.generateJobNumber();
-      const fileName = this.extractFileName(design.fileUrl);
-      
-      const job = await ManufacturingJob.create({
-        jobNumber,
-        productId: product._id,
-        status: "Queued",
-        stlFileUrl: design.fileUrl,
-        fileName,
-      });
-
-      // Dispatch job to slicing queue 
-      const slicingQueue = queueManager.getQueue(QUEUE_NAMES.SLICING);
-      const jobData: SlicingJobData = {
-        jobId: job._id.toString(),
-        stlUrl: design.fileUrl,
-        designId: job._id.toString(),
-        material: "PLA",
-        ownerId: "system",
-      };
-      await slicingQueue.add("slice-model", jobData);
-
-      // Mark images as used after successful job creation and dispatch
-      if (data.images?.length) {
-        await Upload.updateMany({ fileUrl: { $in: data.images } }, { isUsed: true });
-      }
-
-      return product;
-    } catch (error) {
-      // Implement rollback on job creation or dispatch failure
-      await Product.findByIdAndDelete(product._id);
-      throw error;
-    }
-  }
-
-  /**
-   * Update product with G-code URL and mark as printing ready.
-   * Called by slicing worker when slicing completes successfully.
-   * 
-   * @param productId - Product ID to update
-   * @param gcodeUrl - Generated G-code URL
-   */
-  static async updateProductGcode(productId: string, gcodeUrl: string): Promise<void> {
-    await Product.findByIdAndUpdate(productId, {
-      gcodeUrl,
-      isPrintingReady: true,
-    });
-  }
-
-    /**
-     * Generate unique job number with format "JOB-{timestamp}-{random6}"
-     * @returns Unique job number string
-     */
-    private static generateJobNumber(): string {
-      const timestamp = Date.now();
-      const random6 = Math.random().toString(36).substring(2, 8);
-      return `JOB-${timestamp}-${random6}`;
-    }
-
-    /**
-     * Extract filename from a file URL
-     * @param fileUrl - The URL to extract filename from
-     * @returns The filename extracted from the URL pathname
-     */
-    private static extractFileName(fileUrl: string): string {
-      const url = new URL(fileUrl);
-      const pathname = url.pathname;
-      return pathname.substring(pathname.lastIndexOf('/') + 1);
-    }
-
 }

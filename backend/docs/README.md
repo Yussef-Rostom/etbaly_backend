@@ -118,11 +118,11 @@ All list endpoints that support filtering accept the following standard query pa
 
 - **`sort`** (*string*, Optional)
   - *Description:* Field to sort by. Prefix with `-` for descending order
-  - *Example:* `sort=-createdAt` or `sort=currentBasePrice`
+  - *Example:* `sort=-createdAt` or `sort=name`
 
 - **`fields`** (*string*, Optional)
   - *Description:* Comma-separated list of fields to include in the response (field projection)
-  - *Example:* `fields=name,currentBasePrice`
+  - *Example:* `fields=name,isActive`
 
 - **Filter by any field** (*any*, Optional)
   - *Description:* Any model field can be used directly as a query parameter
@@ -130,7 +130,7 @@ All list endpoints that support filtering accept the following standard query pa
 
 - **Range filters** (*number*, Optional)
   - *Description:* Use bracket notation for numeric range queries
-  - *Example:* `currentBasePrice[gte]=10&currentBasePrice[lte]=100`
+  - *Example:* `weight[gte]=10&weight[lte]=100`
 
 ---
 
@@ -260,10 +260,12 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`name`** — String
 - **`description`** — Optional string
 - **`images`** — Array of URL strings
-- **`currentBasePrice`** — Number (≥ 0)
 - **`isActive`** — Boolean (default: `true`)
-- **`stockLevel`** — Number (≥ 0, default: `0`)
 - **`linkedDesignId`** — ObjectId ref → Design
+- **`printingProperties`** — Object `{ material, color, scale, preset }` (optional)
+- **`slicingResult`** — Object populated by slicing worker: `{ gcodeUrl, dimensions, weight, printTime, calculatedPrice, slicedAt }` (null until sliced)
+- **`isCustomizable`** — Boolean (default: `false`)
+- **`customFields`** — Array of field definitions (required when `isCustomizable: true`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
 ### Design
@@ -367,6 +369,8 @@ Complete shapes of all MongoDB documents returned by the API.
 
 - **`_id`** — MongoDB ObjectId (used as jobId in all responses)
 - **`slicingJobId`** — ObjectId ref → SlicingJob (required)
+- **`orderId`** — ObjectId ref → Order (required) — used to sync order item status
+- **`orderItemId`** — ObjectId (required) — the specific order item this job prints
 - **`operatorId`** — Optional ObjectId ref → User
 - **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
 - **`gcodeUrl`** — String (required, URL to G-code file copied from SlicingJob)

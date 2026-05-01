@@ -53,17 +53,7 @@ describe('CartService Integration Tests', () => {
     });
     designId = design._id.toString();
 
-    // Create test product linked to design
-    const product = await Product.create({
-      name: 'Test Product',
-      currentBasePrice: 29.99,
-      linkedDesignId: designId,
-      stockLevel: 10,
-      isActive: true,
-    });
-    productId = product._id.toString();
-
-    // Create completed slicing job
+    // Create completed slicing job first (product depends on it)
     const slicingJob = await SlicingJob.create({
       designId,
       userId,
@@ -78,6 +68,15 @@ describe('CartService Integration Tests', () => {
       finishedAt: new Date(),
     });
     slicingJobId = slicingJob._id.toString();
+
+    // Create test product linked to design and slicing job
+    const product = await Product.create({
+      name: 'Test Product',
+      linkedDesignId: designId,
+      slicingJobId: slicingJob._id,
+      isActive: true,
+    });
+    productId = product._id.toString();
   });
 
   afterEach(async () => {

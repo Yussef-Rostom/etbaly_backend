@@ -1,9 +1,12 @@
 import { PrintingJob, IPrintingJob } from "#src/models/PrintingJob";
+import { Order } from "#src/models/Order";
 import mongoose from "mongoose";
 import { AppError } from "#src/utils/AppError";
 
 export interface CreatePrintingJobInput {
   slicingJobId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  orderItemId: mongoose.Types.ObjectId;
   gcodeUrl: string;
   fileName: string;
   operatorId?: mongoose.Types.ObjectId;
@@ -97,13 +100,9 @@ export class PrintingService {
   }
 
   /**
-   * Manually starts a PrintingJob
-   * Transitions from "Queued" to "Processing" and sets startedAt timestamp
-   * 
-   * @param jobId - The MongoDB ObjectId of the job
-   * @param machineId - Optional 3D printer identifier
-   * @returns The updated PrintingJob document
-   * @throws AppError if job not found or validation fails
+   * Manually starts a PrintingJob.
+   * Transitions from "Queued" to "Processing", sets startedAt,
+   * and updates the linked order item status to "Printing".
    */
   static async startPrintingJob(
     jobId: string,
@@ -115,7 +114,6 @@ export class PrintingService {
       throw new AppError("PrintingJob not found", 404);
     }
 
-    // Validate current status
     if (job.status !== "Queued") {
       throw new AppError(
         "Invalid status transition. Job must be in 'Queued' status.",
@@ -123,15 +121,8 @@ export class PrintingService {
       );
     }
 
-    // Build update data
-    const updateData: any = {
-      status: "Processing",
-      startedAt: new Date(),
-    };
-
-    if (machineId) {
-      updateData.machineId = machineId;
-    }
+    const updateData: any = { status: "Processing", startedAt: new Date() };
+    if (machineId) updateData.machineId = machineId;
 
     const updatedJob = await PrintingJob.findByIdAndUpdate(
       jobId,
@@ -143,16 +134,19 @@ export class PrintingService {
       throw new AppError("PrintingJob not found", 404);
     }
 
+    // Update the linked order item status to "Printing"
+    await Order.updateOne(
+      { _id: job.orderId, "items._id": job.orderItemId } as any,
+      { $set: { "items.$.status": "Printing" } },
+    );
+
     return updatedJob;
   }
 
   /**
-   * Manually completes a PrintingJob
-   * Transitions from "Processing" to "Completed" and sets finishedAt timestamp
-   * 
-   * @param jobId - The MongoDB ObjectId of the job
-   * @returns The updated PrintingJob document
-   * @throws AppError if job not found or validation fails
+   * Manually completes a PrintingJob.
+   * Transitions from "Processing" to "Completed", sets finishedAt,
+   * and updates the linked order item status to "Ready".
    */
   static async completePrintingJob(jobId: string): Promise<IPrintingJob> {
     const job = await PrintingJob.findById(jobId);
@@ -161,7 +155,6 @@ export class PrintingService {
       throw new AppError("PrintingJob not found", 404);
     }
 
-    // Validate current status
     if (job.status !== "Processing") {
       throw new AppError(
         "Invalid status transition. Job must be in 'Processing' status.",
@@ -171,16 +164,19 @@ export class PrintingService {
 
     const updatedJob = await PrintingJob.findByIdAndUpdate(
       jobId,
-      {
-        status: "Completed",
-        finishedAt: new Date(),
-      },
+      { status: "Completed", finishedAt: new Date() },
       { returnDocument: 'after', runValidators: true }
     );
 
     if (!updatedJob) {
       throw new AppError("PrintingJob not found", 404);
     }
+
+    // Update the linked order item status to "Ready"
+    await Order.updateOne(
+      { _id: job.orderId, "items._id": job.orderItemId } as any,
+      { $set: { "items.$.status": "Ready" } },
+    );
 
     return updatedJob;
   }
@@ -194,10 +190,7 @@ export class PrintingService {
    * @returns The updated PrintingJob document
    * @throws AppError if job not found or validation fails
    */
-  static async failPrintingJob(
-    jobId: string,
-    reason?: string
-  ): Promise<IPrintingJob> {
+  static async failPrintingJob(jobId: string): Promise<IPrintingJob> {
     const job = await PrintingJob.findById(jobId);
     
     if (!job) {
@@ -229,17 +222,21 @@ export class PrintingService {
   }
 
   /**
-   * Retrieves a PrintingJob by ID
-   * 
-   * @param jobId - The MongoDB ObjectId of the job
-   * @returns The PrintingJob document or null if not found
+   * Retrieves a PrintingJob by ID with full population:
+   * slicingJobId → stlFileUrl, gcodeUrl, material, color, preset, scale, weight, dimensions, printTime, calculatedPrice
+   * orderId → order status and shipping info
+   * operatorId → operator name/email
    */
-  static async getPrintingJobById(jobId: string): Promise<IPrintingJob | null> {
+  static async getJobById(jobId: string): Promise<any | null> {
     if (!mongoose.Types.ObjectId.isValid(jobId)) {
       return null;
     }
-    
-    return await PrintingJob.findById(jobId);
+
+    return PrintingJob.findById(jobId)
+      .populate("slicingJobId", "stlFileUrl gcodeUrl material color preset scale weight dimensions printTime calculatedPrice fileName designId status")
+      .populate("orderId", "status shippingAddressSnapshot pricingSummary userId")
+      .populate("operatorId", "profile.firstName profile.lastName email")
+      .lean();
   }
 
   /**

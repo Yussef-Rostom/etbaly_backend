@@ -22,10 +22,14 @@ The printing module manages manual physical 3D printing workflows with admin app
 ```
 1. User completes cart checkout
    → PrintingJobs created automatically (status: "Pending Review"), one per cart item quantity
+   → Each PrintingJob stores orderId + orderItemId for status sync
 2. Admin calls POST /review → Approve (→ "Queued") or Reject (→ "Rejected")
 3. Admin calls POST /start → "Processing" (sets startedAt)
+   → Order item status updated to "Printing"
    → Admin downloads G-code from gcodeUrl and manually sends to printer
-4. Admin calls POST /complete or POST /fail → "Completed" / "Failed" (sets finishedAt)
+4. Admin calls POST /complete → "Completed" (sets finishedAt)
+   → Order item status updated to "Ready"
+   OR POST /fail → "Failed"
 ```
 
 ---
@@ -185,7 +189,6 @@ Fails a PrintingJob, transitioning from `"Processing"` to `"Failed"`.
 **Request Body (JSON)**
 
 - **`jobId`** (*string*, Required) — MongoDB ObjectId of the PrintingJob
-- **`reason`** (*string*, Optional) — Reason for failure
 
 **Response 200 — OK**
 ```json
@@ -210,22 +213,95 @@ Fails a PrintingJob, transitioning from `"Processing"` to `"Failed"`.
 
 ---
 
+### `GET /api/v1/printing/status/:jobId`
+
+- **Access:** Admin or Operator
+
+Returns a single PrintingJob with full population — slicing job details (STL URL, G-code URL, material, dimensions, weight, price), order info, and operator info.
+
+**Path Parameters**
+
+- **`:jobId`** (*string*, Required) — MongoDB ObjectId of the PrintingJob
+
+**Response 200 — OK**
+```json
+{
+  "success": true,
+  "message": "PrintingJob retrieved successfully.",
+  "data": {
+    "job": {
+      "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+      "status": "Queued",
+      "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
+      "fileName": "model.stl",
+      "machineId": null,
+      "orderId": {
+        "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
+        "status": "Pending",
+        "userId": "64f1a2b3c4d5e6f7a8b9c0d1",
+        "shippingAddressSnapshot": {
+          "street": "123 Main St",
+          "city": "Cairo",
+          "country": "Egypt",
+          "zip": "11511"
+        },
+        "pricingSummary": { "subtotal": 31.14, "total": 31.14 }
+      },
+      "orderItemId": "64f1a2b3c4d5e6f7a8b9c0d8",
+      "slicingJobId": {
+        "_id": "64f1a2b3c4d5e6f7a8b9c0d9",
+        "stlFileUrl": "https://drive.google.com/uc?id=abc123",
+        "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
+        "fileName": "model.stl",
+        "material": "PLA",
+        "color": "White",
+        "preset": "normal",
+        "scale": 100,
+        "weight": 45.5,
+        "dimensions": { "width": 100, "height": 50, "depth": 75 },
+        "printTime": 180,
+        "calculatedPrice": 31.14,
+        "status": "Completed"
+      },
+      "operatorId": null,
+      "startedAt": null,
+      "finishedAt": null,
+      "createdAt": "2026-04-30T10:00:00.000Z",
+      "updatedAt": "2026-04-30T10:00:00.000Z"
+    }
+  }
+}
+```
+
+**Response 404 — Not Found**
+```json
+{ "success": false, "message": "PrintingJob not found." }
+```
+
+---
+
 ## Data Model
 
 ### PrintingJob
 
 - **`_id`** — MongoDB ObjectId (used as `jobId` in all responses)
 - **`slicingJobId`** — ObjectId ref → SlicingJob (required)
+- **`orderId`** — ObjectId ref → Order (required) — used to update order item status
+- **`orderItemId`** — ObjectId (required) — the specific order item this job prints
 - **`status`** — `"Pending Review"` | `"Approved"` | `"Rejected"` | `"Queued"` | `"Processing"` | `"Completed"` | `"Failed"` (default: `"Pending Review"`)
 - **`gcodeUrl`** — String (required, copied from the SlicingJob)
 - **`machineId`** — Optional string (3D printer identifier, set on start)
 - **`fileName`** — String (required, copied from the SlicingJob)
-- **`operatorId`** — Optional ObjectId ref → User (user who created the job)
+- **`operatorId`** — Optional ObjectId ref → User (operator who created the job via checkout)
 - **`startedAt`** — Optional Date (set when admin calls `/start`)
 - **`finishedAt`** — Optional Date (set when admin calls `/complete` or `/fail`)
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 
-**Indexed fields:** `slicingJobId`, `status`
+**Indexed fields:** `slicingJobId`, `orderId`, `orderItemId`, `status`
+
+**Order item status sync:**
+- `POST /start` → sets order item `status: "Printing"`
+- `POST /complete` → sets order item `status: "Ready"`
 
 **Status Flow:**
 ```
@@ -235,25 +311,6 @@ Pending Review → Queued (approve) → Processing → Completed
 
 **Terminal states:** `Rejected`, `Completed`, `Failed`
 
----
-
-## Queue Integration
-
-When a PrintingJob is created, it is dispatched to the `PRINTING` BullMQ queue with the following payload:
-
-```json
-{
-  "jobId": "<printingJob._id>",
-  "ownerId": "<user._id>",
-  "gcodeUrl": "<slicingJob.gcodeUrl>",
-  "designId": "<slicingJob.designId>"
-}
-```
-
-> There is currently no automated printing worker. The queue is in place for future automation. All state transitions are manual via the admin endpoints.
-
----
-
 ## Example Usage
 
 ```bash
@@ -261,20 +318,17 @@ When a PrintingJob is created, it is dispatched to the `PRINTING` BullMQ queue w
 POST /api/v1/cart/checkout
 Authorization: Bearer <token>
 {
-  "shippingAddress": {
-    "street": "123 Main St",
-    "city": "Cairo",
-    "country": "Egypt",
-    "zip": "12345"
-  },
+  "shippingAddress": { "street": "123 Main St", "city": "Cairo", "country": "Egypt", "zip": "12345" },
   "paymentMethod": "Card"
 }
-# → PrintingJobs created automatically for each cart item quantity
+# → PrintingJobs created for each cart item unit (status: "Pending Review")
+# → Each job stores orderId + orderItemId
 
-# Step 2: Admin reviews pending jobs
+# Step 2: Admin reviews
 POST /api/v1/printing/review
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "action": "approve" }
+# → status: "Queued"
 
 # Step 3: Admin gets queued jobs
 GET /api/v1/printing/queued
@@ -284,10 +338,17 @@ Authorization: Bearer <admin-token>
 POST /api/v1/printing/start
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "machineId": "PRINTER-01" }
-# → Download gcodeUrl and send to printer manually
+# → PrintingJob status: "Processing"
+# → Order item status: "Printing"
 
-# Step 5: Admin marks complete
+# Step 5: Check job details (fully populated)
+GET /api/v1/printing/status/64f1a2b3c4d5e6f7a8b9c0d1
+Authorization: Bearer <admin-token>
+
+# Step 6: Admin marks complete
 POST /api/v1/printing/complete
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1" }
+# → PrintingJob status: "Completed"
+# → Order item status: "Ready"
 ```

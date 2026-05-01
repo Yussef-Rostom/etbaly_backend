@@ -67,10 +67,21 @@ Returns all orders placed by the authenticated user, sorted newest first.
           {
             "_id": "64f1a2b3c4d5e6f7a8b9c0d8",
             "itemType": "Product",
-            "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
+            "itemRefId": {
+              "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
+              "name": "Decorative Vase",
+              "images": ["https://drive.google.com/uc?id=..."],
+              "description": "A beautiful 3D-printed vase."
+            },
             "quantity": 2,
             "price": 59.98,
-            "status": "Queued"
+            "status": "Queued",
+            "printingProperties": {
+              "material": "PLA",
+              "color": "Red",
+              "scale": 100,
+              "preset": "normal"
+            }
           }
         ],
         "shippingAddressSnapshot": {
@@ -142,10 +153,21 @@ Returns a single order by its ID.
         {
           "_id": "64f1a2b3c4d5e6f7a8b9c0d8",
           "itemType": "Product",
-          "itemRefId": "64f1a2b3c4d5e6f7a8b9c0d2",
+          "itemRefId": {
+            "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
+            "name": "Decorative Vase",
+            "images": ["https://drive.google.com/uc?id=..."],
+            "description": "A beautiful 3D-printed vase."
+          },
           "quantity": 2,
           "price": 59.98,
-          "status": "Printing"
+          "status": "Printing",
+          "printingProperties": {
+            "material": "PLA",
+            "color": "Red",
+            "scale": 100,
+            "preset": "normal"
+          }
         }
       ],
       "shippingAddressSnapshot": {
@@ -173,6 +195,13 @@ Returns a single order by its ID.
   }
 }
 ```
+
+> `items.itemRefId` is populated with the product or design document (`name`, `images`, `thumbnailUrl`, `description`).
+
+**Item status values:**
+- `"Queued"` — printing job created, awaiting admin review
+- `"Printing"` — admin started the printing job
+- `"Ready"` — printing completed, item ready for shipment
 
 **Response 400 — Invalid ID**
 ```json
@@ -227,7 +256,10 @@ Returns a paginated list of all orders in the system, sorted newest first. Suppo
 
 **Response 200 — OK**
 ```json
-{
+{router
+  .route("/:jobId")
+  .get(PrintingController.getJobById);
+
   "success": true,
   "message": "All orders fetched successfully",
   "data": {

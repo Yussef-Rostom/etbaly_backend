@@ -1,55 +1,47 @@
-import { validatePrintingReadiness } from "../Product";
+import { isProductPrintingReady, validateCustomizability, IProduct } from "../Product";
 
-describe("Product Model - Validation Helper", () => {
-  describe("validatePrintingReadiness", () => {
-    // Test Requirement 3.2: Not ready allows any G-code state
-    it("should not throw when isPrintingReady is false and gcodeUrl is absent", () => {
-      expect(() => {
-        validatePrintingReadiness(false, undefined);
-      }).not.toThrow();
+describe("Product Model - Helpers", () => {
+  describe("isProductPrintingReady", () => {
+    it("returns false when slicingResult is absent", () => {
+      expect(isProductPrintingReady({ slicingResult: undefined } as IProduct)).toBe(false);
     });
 
-    it("should not throw when isPrintingReady is false and gcodeUrl is present", () => {
-      expect(() => {
-        validatePrintingReadiness(false, "https://example.com/gcode.gcode");
-      }).not.toThrow();
+    it("returns false when slicingResult has no gcodeUrl", () => {
+      expect(isProductPrintingReady({ slicingResult: { gcodeUrl: "" } } as any)).toBe(false);
     });
 
-    it("should not throw when isPrintingReady is false and gcodeUrl is empty", () => {
-      expect(() => {
-        validatePrintingReadiness(false, "");
-      }).not.toThrow();
+    it("returns true when slicingResult has a gcodeUrl", () => {
+      expect(
+        isProductPrintingReady({
+          slicingResult: { gcodeUrl: "https://example.com/model.gcode" },
+        } as any),
+      ).toBe(true);
+    });
+  });
+
+  describe("validateCustomizability", () => {
+    it("does not throw when isCustomizable is false", () => {
+      expect(() => validateCustomizability(false, undefined)).not.toThrow();
     });
 
-    // Test Requirement 3.1: Ready requires G-code
-    it("should not throw when isPrintingReady is true and gcodeUrl is present", () => {
-      expect(() => {
-        validatePrintingReadiness(true, "https://example.com/gcode.gcode");
-      }).not.toThrow();
+    it("does not throw when isCustomizable is true and customFields are provided", () => {
+      expect(() =>
+        validateCustomizability(true, [
+          { fieldName: "color", fieldType: "text", isRequired: false, label: "Color" },
+        ]),
+      ).not.toThrow();
     });
 
-    it("should throw when isPrintingReady is true and gcodeUrl is absent", () => {
-      expect(() => {
-        validatePrintingReadiness(true, undefined);
-      }).toThrow("Products marked as printing ready must have a G-code URL");
+    it("throws when isCustomizable is true but customFields is empty", () => {
+      expect(() => validateCustomizability(true, [])).toThrow(
+        "Products marked as customizable must have at least one custom field defined",
+      );
     });
 
-    it("should throw when isPrintingReady is true and gcodeUrl is empty string", () => {
-      expect(() => {
-        validatePrintingReadiness(true, "");
-      }).toThrow("Products marked as printing ready must have a G-code URL");
-    });
-
-    it("should throw when isPrintingReady is true and gcodeUrl is whitespace only", () => {
-      expect(() => {
-        validatePrintingReadiness(true, "   ");
-      }).toThrow("Products marked as printing ready must have a G-code URL");
-    });
-
-    it("should throw when isPrintingReady is true and gcodeUrl is tabs and newlines", () => {
-      expect(() => {
-        validatePrintingReadiness(true, "\t\n  \t");
-      }).toThrow("Products marked as printing ready must have a G-code URL");
+    it("throws when isCustomizable is true but customFields is absent", () => {
+      expect(() => validateCustomizability(true, undefined)).toThrow(
+        "Products marked as customizable must have at least one custom field defined",
+      );
     });
   });
 });

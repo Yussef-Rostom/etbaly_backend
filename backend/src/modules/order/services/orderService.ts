@@ -29,14 +29,17 @@ export class OrderService {
   }
 
   static async getMyOrders(userId: string): Promise<IOrder[]> {
-    return Order.find({ userId }).sort({ createdAt: -1 });
+    return Order.find({ userId })
+      .populate("items.itemRefId", "name images thumbnailUrl description")
+      .sort({ createdAt: -1 });
   }
 
   static async getOrderById(
     orderId: string,
     requestingUser: AuthenticatedUser,
   ): Promise<IOrder> {
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId)
+      .populate("items.itemRefId", "name images thumbnailUrl description");
 
     if (!order) {
       throw new AppError("Order not found.", 404);

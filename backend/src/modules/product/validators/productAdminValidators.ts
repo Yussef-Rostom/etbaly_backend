@@ -19,10 +19,9 @@ export const createProductSchema = z.object({
   name: z.string().min(1, "Product name is required").trim(),
   description: z.string().trim().optional(),
   images: z.array(z.string().url("Each image must be a valid URL")).optional(),
-  currentBasePrice: z.number().min(0, "Price cannot be negative"),
   isActive: z.boolean().optional(),
-  stockLevel: z.number().min(0, "Stock level cannot be negative").optional(),
   linkedDesignId: objectIdValidator,
+  slicingJobId: objectIdValidator,
   isCustomizable: z.boolean().optional(),
   customFields: z.array(customFieldSchema).optional(),
 });

@@ -512,10 +512,17 @@ export class CartService {
         );
       }
 
-      // Create printing job for each quantity
+      // Find the matching order item id
+      const orderItem = order.items.find(
+        (oi) => oi.itemRefId.toString() === item.itemRefId.toString(),
+      );
+
+      // Create one printing job per unit quantity
       for (let i = 0; i < item.quantity; i++) {
         await PrintingService.createPrintingJob({
-          slicingJobId: item.slicingJobId!, // Already validated above
+          slicingJobId: item.slicingJobId!,
+          orderId: order._id as any,
+          orderItemId: orderItem?._id as any,
           gcodeUrl: slicingJob.gcodeUrl,
           fileName: slicingJob.fileName || `${item.itemRefId}-${i + 1}.gcode`,
         });

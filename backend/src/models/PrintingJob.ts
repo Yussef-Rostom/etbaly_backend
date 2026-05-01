@@ -2,6 +2,8 @@ import mongoose, { Document, Schema } from "mongoose";
 
 export interface IPrintingJob extends Document {
   slicingJobId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId;
+  orderItemId: mongoose.Types.ObjectId;
   status: "Pending Review" | "Approved" | "Rejected" | "Queued" | "Processing" | "Completed" | "Failed";
   gcodeUrl: string;
   machineId?: string;
@@ -19,6 +21,17 @@ const printingJobSchema = new Schema<IPrintingJob>(
       type: Schema.Types.ObjectId,
       ref: "SlicingJob",
       required: [true, "Slicing Job ID is required"],
+      index: true,
+    },
+    orderId: {
+      type: Schema.Types.ObjectId,
+      ref: "Order",
+      required: [true, "Order ID is required"],
+      index: true,
+    },
+    orderItemId: {
+      type: Schema.Types.ObjectId,
+      required: [true, "Order Item ID is required"],
       index: true,
     },
     status: {
@@ -57,10 +70,16 @@ const printingJobSchema = new Schema<IPrintingJob>(
   },
 );
 
-// Pre-validation hook to ensure slicingJobId is provided
+// Pre-validation hook to ensure required refs are provided
 printingJobSchema.pre('validate', function() {
   if (!this.slicingJobId) {
     this.invalidate('slicingJobId', 'Slicing Job ID is required');
+  }
+  if (!this.orderId) {
+    this.invalidate('orderId', 'Order ID is required');
+  }
+  if (!this.orderItemId) {
+    this.invalidate('orderItemId', 'Order Item ID is required');
   }
 });
 

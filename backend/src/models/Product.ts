@@ -1,4 +1,8 @@
 import mongoose, { Document, Schema } from "mongoose";
+import {
+  IPrintingProperties,
+  printingPropertiesSchema,
+} from "#src/models/schemas/PrintingPropertiesSchema";
 
 export interface ICustomField {
   fieldName: string;
@@ -8,16 +12,24 @@ export interface ICustomField {
   placeholder?: string;
 }
 
+export interface ISlicingResult {
+  gcodeUrl: string;
+  dimensions: { width: number; height: number; depth: number };
+  weight: number;       // grams
+  printTime: number;    // minutes
+  calculatedPrice: number;
+  slicedAt: Date;
+}
+
 export interface IProduct extends Document {
   name: string;
   description?: string;
   images: string[];
-  currentBasePrice: number;
   isActive: boolean;
-  stockLevel: number;
   linkedDesignId: mongoose.Types.ObjectId;
-  isPrintingReady: boolean;
-  gcodeUrl?: string;
+  slicingJobId: mongoose.Types.ObjectId;       // the slicing job that produced the default result
+  printingProperties?: IPrintingProperties;    // server-populated from slicingJob (not user input)
+  slicingResult?: ISlicingResult;              // server-populated from slicingJob (not user input)
   isCustomizable: boolean;
   customFields?: ICustomField[];
   createdAt: Date;
@@ -26,29 +38,31 @@ export interface IProduct extends Document {
 
 const customFieldSchema = new Schema<ICustomField>(
   {
-    fieldName: {
-      type: String,
+    fieldName: { type: String, required: true, trim: true },
+    fieldType: { type: String, enum: ["text", "number", "date"], required: true },
+    isRequired: { type: Boolean, default: false },
+    label: { type: String, required: true, trim: true },
+    placeholder: { type: String, trim: true },
+  },
+  { _id: false },
+);
+
+const slicingResultSchema = new Schema<ISlicingResult>(
+  {
+    gcodeUrl: { type: String, required: true, trim: true },
+    dimensions: {
+      type: {
+        width: { type: Number, required: true },
+        height: { type: Number, required: true },
+        depth: { type: Number, required: true },
+      },
       required: true,
-      trim: true,
+      _id: false,
     },
-    fieldType: {
-      type: String,
-      enum: ["text", "number", "date"],
-      required: true,
-    },
-    isRequired: {
-      type: Boolean,
-      default: false,
-    },
-    label: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    placeholder: {
-      type: String,
-      trim: true,
-    },
+    weight: { type: Number, required: true, min: 0 },
+    printTime: { type: Number, required: true, min: 0 },
+    calculatedPrice: { type: Number, required: true, min: 0 },
+    slicedAt: { type: Date, required: true, default: Date.now },
   },
   { _id: false },
 );
@@ -70,35 +84,29 @@ const productSchema = new Schema<IProduct>(
       type: [String],
       default: [],
     },
-    currentBasePrice: {
-      type: Number,
-      required: [true, "Current base price is required"],
-      min: [0, "Price cannot be negative"],
-    },
     isActive: {
       type: Boolean,
       default: true,
       index: true,
-    },
-    stockLevel: {
-      type: Number,
-      required: [true, "Stock level is required"],
-      min: [0, "Stock level cannot be negative"],
-      default: 0,
     },
     linkedDesignId: {
       type: Schema.Types.ObjectId,
       ref: "Design",
       required: [true, "Linked Design ID is required"],
     },
-    isPrintingReady: {
-      type: Boolean,
-      default: false,
+    slicingJobId: {
+      type: Schema.Types.ObjectId,
+      ref: "SlicingJob",
+      required: [true, "Slicing Job ID is required"],
       index: true,
     },
-    gcodeUrl: {
-      type: String,
-      trim: true,
+    printingProperties: {
+      type: printingPropertiesSchema,
+      default: undefined,
+    },
+    slicingResult: {
+      type: slicingResultSchema,
+      default: undefined,
     },
     isCustomizable: {
       type: Boolean,
@@ -115,43 +123,16 @@ const productSchema = new Schema<IProduct>(
 );
 
 /**
- * Validates logical consistency between isPrintingReady and gcodeUrl fields.
- * 
- * Enforces Requirement 3.1: Products marked as printing ready must have a G-code URL.
- * 
- * @param isPrintingReady - Whether the product is ready for printing
- * @param gcodeUrl - Optional URL to the G-code file
- * @throws {Error} When isPrintingReady is true but gcodeUrl is absent or empty
- * 
- * @example
- * // In service layer before creating/updating a product:
- * validatePrintingReadiness(data.isPrintingReady, data.gcodeUrl);
- * await Product.create(data);
+ * Returns true when the product has a completed slicing output with a G-code URL.
  */
-export function validatePrintingReadiness(
-  isPrintingReady: boolean,
-  gcodeUrl?: string,
-): void {
-  if (isPrintingReady && (!gcodeUrl || gcodeUrl.trim() === "")) {
-    throw new Error(
-      "Products marked as printing ready must have a G-code URL",
-    );
-  }
+export function isProductPrintingReady(product: IProduct): boolean {
+  return !!product.slicingResult?.gcodeUrl;
 }
 
 /**
  * Validates logical consistency between isCustomizable and customFields.
- * 
- * Enforces: Products marked as customizable must have customFields defined.
- * 
- * @param isCustomizable - Whether the product allows customization
- * @param customFields - Optional array of custom field definitions
+ *
  * @throws {Error} When isCustomizable is true but customFields is absent or empty
- * 
- * @example
- * // In service layer before creating/updating a product:
- * validateCustomizability(data.isCustomizable, data.customFields);
- * await Product.create(data);
  */
 export function validateCustomizability(
   isCustomizable: boolean,
