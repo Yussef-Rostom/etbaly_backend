@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { OrderAdminController } from "#src/modules/order/controllers/orderAdminController";
 import { validate } from "#src/middlewares/validate";
-import { adminOrdersQuerySchema } from "#src/modules/order/validators/orderValidators";
+import { adminOrdersQuerySchema, objectIdParamSchema } from "#src/modules/order/validators/orderValidators";
 import { authMiddleware } from "#src/middlewares/authMiddleware";
 import { restrictTo } from "#src/middlewares/roleMiddleware";
 
@@ -13,5 +13,9 @@ router.use(authMiddleware, restrictTo("operator", "admin"));
 router
   .route("/")
   .get(validate(adminOrdersQuerySchema, "query"), OrderAdminController.getAllOrders);
+
+router
+  .route("/:id")
+  .get(validate(objectIdParamSchema, "params"), OrderAdminController.getOrderById);
 
 export default router;

@@ -12,4 +12,10 @@ export class OrderAdminController {
 
     sendSuccess(res, 200, "All orders fetched successfully", { orders, total, page, limit });
   });
+
+  static getOrderById = catchAsync(async (req: Request, res: Response) => {
+    const order = await OrderAdminService.getOrderById(req.params.id as string);
+
+    sendSuccess(res, 200, "Order fetched successfully", { order });
+  });
 }

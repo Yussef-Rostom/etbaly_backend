@@ -318,3 +318,102 @@ Returns a paginated list of all orders in the system, sorted newest first. Suppo
 ```json
 { "success": false, "message": "You do not have permission to perform this action." }
 ```
+
+---
+
+### `GET /api/v1/admin/orders/:id`
+
+- **Access:** Operator, Admin
+
+Returns a single order by its ID with full details including user information and printing job statuses.
+
+**Path Parameters**
+
+- **`:id`** (*string*, Required) — MongoDB ObjectId of the order
+
+**Response 200 — OK**
+```json
+{
+  "success": true,
+  "message": "Order fetched successfully",
+  "data": {
+    "order": {
+      "_id": "64f1a2b3c4d5e6f7a8b9c0d7",
+      "status": "Processing",
+      "userId": {
+        "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
+        "name": "John Doe",
+        "email": "john@example.com"
+      },
+      "items": [
+        {
+          "_id": "64f1a2b3c4d5e6f7a8b9c0d8",
+          "itemType": "Product",
+          "itemRefId": {
+            "_id": "64f1a2b3c4d5e6f7a8b9c0d2",
+            "name": "Decorative Vase",
+            "images": ["https://drive.google.com/uc?id=..."],
+            "description": "A beautiful 3D-printed vase."
+          },
+          "quantity": 2,
+          "price": 59.98,
+          "status": "Printing",
+          "printingProperties": {
+            "material": "PLA",
+            "color": "Red",
+            "scale": 100,
+            "preset": "normal"
+          },
+          "printingJobs": ["Processing", "Completed"]
+        }
+      ],
+      "shippingAddressSnapshot": {
+        "street": "123 Main St",
+        "city": "Cairo",
+        "country": "Egypt",
+        "zip": "11511"
+      },
+      "paymentInfo": {
+        "method": "COD",
+        "status": "Pending",
+        "amountPaid": 0
+      },
+      "pricingSummary": {
+        "subtotal": 59.98,
+        "taxAmount": 0,
+        "shippingCost": 0,
+        "discountAmount": 0,
+        "total": 59.98
+      },
+      "createdAt": "2026-03-24T10:00:00.000Z",
+      "updatedAt": "2026-03-24T10:30:00.000Z"
+    }
+  }
+}
+```
+
+> **Note:** Admin endpoint populates `userId` with user details (name, email) and includes `printingJobs` array for each order item.
+
+**Response 400 — Invalid ID**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": { "errors": [{ "field": "id", "message": "Invalid ObjectId" }] }
+}
+```
+
+**Response 401 — Unauthenticated**
+```json
+{ "success": false, "message": "You are not logged in. Please log in to get access." }
+```
+
+**Response 403 — Forbidden**
+```json
+{ "success": false, "message": "You do not have permission to perform this action." }
+```
+
+**Response 404 — Not Found**
+```json
+{ "success": false, "message": "Order not found." }
+```

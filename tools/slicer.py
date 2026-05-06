@@ -128,102 +128,61 @@ def parse_gcode_metadata(gcode_path: str) -> dict:
     min_x = min_y = min_z = float('inf')
     max_x = max_y = max_z = float('-inf')
     has_coordinates = False
-    lines_read = 0
-    max_lines = 10000  # Limit reading to first 10k lines for performance
-    
+
     try:
         with open(gcode_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                lines_read += 1
-                if lines_read > max_lines and has_coordinates:
-                    break  # Stop if we have coordinates and read enough
-                    
-                line = line.strip()
-                
-                # Parse filament used (in mm) - convert to weight
-                # PrusaSlicer format: ; filament used [mm] = 1234.56 or ; filament used = 1234.56mm
-                if 'filament used' in line.lower():
-                    match = re.search(r'([\d.]+)\s*mm', line)
-                    if not match:
-                        match = re.search(r'=\s*([\d.]+)', line)
-                    if match:
-                        filament_mm = float(match.group(1))
-                        # Approximate: 1.75mm filament, PLA density ~1.24 g/cm³
-                        # Volume = π * (0.875mm)² * length_mm = 2.405 * length_mm mm³
-                        # Weight = volume_cm³ * density = (volume_mm³ / 1000) * 1.24
-                        volume_cm3 = (3.14159 * 0.875 * 0.875 * filament_mm) / 1000
-                        metadata["weight"] = round(volume_cm3 * 1.24, 2)
-                
-                # Parse estimated print time
-                # PrusaSlicer format: ; estimated printing time (normal mode) = 3h 25m 12s
-                if 'estimated printing time' in line.lower() or 'print time' in line.lower():
-                    # Extract hours, minutes, seconds
-                    hours = 0
-                    minutes = 0
-                    seconds = 0
-                    
-                    h_match = re.search(r'(\d+)h', line)
-                    m_match = re.search(r'(\d+)m', line)
-                    s_match = re.search(r'(\d+)s', line)
-                    
-                    if h_match:
-                        hours = int(h_match.group(1))
-                    if m_match:
-                        minutes = int(m_match.group(1))
-                    if s_match:
-                        seconds = int(s_match.group(1))
-                    
-                    if hours or minutes or seconds:
-                        total_minutes = hours * 60 + minutes + (seconds / 60)
-                        metadata["print_time"] = round(total_minutes)
-                
-                # Parse bounding box dimensions from comments
-                if 'bounding_box_min' in line.lower() or '; min' in line.lower():
-                    match = re.search(r'([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)', line)
-                    if match:
-                        min_x = float(match.group(1))
-                        min_y = float(match.group(2))
-                        min_z = float(match.group(3))
-                        has_coordinates = True
-                
-                if 'bounding_box_max' in line.lower() or '; max' in line.lower():
-                    match = re.search(r'([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)', line)
-                    if match:
-                        max_x = float(match.group(1))
-                        max_y = float(match.group(2))
-                        max_z = float(match.group(3))
-                        has_coordinates = True
-                
-                # Parse from G1 movement commands if no bounding box metadata
-                if line.startswith('G1 ') or line.startswith('G0 '):
-                    x_match = re.search(r'X([\d.-]+)', line)
-                    y_match = re.search(r'Y([\d.-]+)', line)
-                    z_match = re.search(r'Z([\d.-]+)', line)
-                    
-                    if x_match:
-                        x = float(x_match.group(1))
-                        min_x = min(min_x, x)
-                        max_x = max(max_x, x)
-                        has_coordinates = True
-                    if y_match:
-                        y = float(y_match.group(1))
-                        min_y = min(min_y, y)
-                        max_y = max(max_y, y)
-                        has_coordinates = True
-                    if z_match:
-                        z = float(z_match.group(1))
-                        min_z = min(min_z, z)
-                        max_z = max(max_z, z)
-                        has_coordinates = True
-            
-            # Calculate dimensions if we found coordinates
-            if has_coordinates and min_x != float('inf') and max_x != float('-inf'):
-                metadata["dimensions"] = {
-                    "width": round(abs(max_x - min_x), 2),
-                    "height": round(abs(max_z - min_z), 2),
-                    "depth": round(abs(max_y - min_y), 2)
-                }
-    
+            lines = f.readlines()
+
+        # --- Pass 1: scan tail of file for PrusaSlicer summary comments ---
+        # These appear after the last layer, typically in the last ~500 lines.
+        for line in lines[-500:]:
+            line = line.strip()
+
+            # ; filament used [g] = 9.00
+            if re.match(r';\s*filament used \[g\]', line, re.IGNORECASE):
+                match = re.search(r'=\s*([\d.]+)', line)
+                if match:
+                    metadata["weight"] = round(float(match.group(1)), 2)
+
+            # ; estimated printing time (normal mode) = 34m 4s  /  1h 2m 3s
+            if re.match(r';\s*estimated printing time \(normal mode\)', line, re.IGNORECASE):
+                hours = minutes = seconds = 0
+                h = re.search(r'(\d+)h', line)
+                m = re.search(r'(\d+)m', line)
+                s = re.search(r'(\d+)s', line)
+                if h: hours   = int(h.group(1))
+                if m: minutes = int(m.group(1))
+                if s: seconds = int(s.group(1))
+                if hours or minutes or seconds:
+                    metadata["print_time"] = round(hours * 60 + minutes + seconds / 60)
+
+        # --- Pass 2: scan movement commands for bounding box ---
+        for line in lines:
+            line = line.strip()
+            if line.startswith('G1 ') or line.startswith('G0 '):
+                x_match = re.search(r'X([\d.-]+)', line)
+                y_match = re.search(r'Y([\d.-]+)', line)
+                z_match = re.search(r'Z([\d.-]+)', line)
+                if x_match:
+                    x = float(x_match.group(1))
+                    min_x = min(min_x, x); max_x = max(max_x, x)
+                    has_coordinates = True
+                if y_match:
+                    y = float(y_match.group(1))
+                    min_y = min(min_y, y); max_y = max(max_y, y)
+                    has_coordinates = True
+                if z_match:
+                    z = float(z_match.group(1))
+                    min_z = min(min_z, z); max_z = max(max_z, z)
+                    has_coordinates = True
+
+        if has_coordinates and min_x != float('inf') and max_x != float('-inf'):
+            metadata["dimensions"] = {
+                "width": round(abs(max_x - min_x), 2),
+                "height": round(abs(max_z - min_z), 2),
+                "depth": round(abs(max_y - min_y), 2),
+            }
+
     except Exception as e:
         print(f"[WARN] Failed to parse G-code metadata: {e}", file=sys.stderr)
     
@@ -529,8 +488,8 @@ def main():
     )
     # Scale factor (important for tiny models!)
     parser.add_argument(
-        "--scale", type=float, default=1.0,
-        help="Scale model by this factor (default: 1.0 = original size)"
+        "--scale", type=float, default=100.0,
+        help="Scale model as a percentage (default: 100 = original size)"
     )
     # Override specific profiles
     parser.add_argument(
@@ -621,9 +580,9 @@ def main():
     print(f"  Perimeters: {perimeters}")
     print(f"Material: {material_profile}")
     if args.scale:
-        print(f"Scale: {args.scale}x")
+        print(f"Scale: {args.scale}%")
 
-    slice_stl(
+    result = slice_stl(
         stl_path=args.stl,
         output_path=args.output,
         config_path=args.config,
@@ -633,6 +592,9 @@ def main():
         material_profile=material_profile,
         scale=args.scale,
     )
+
+    import json
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

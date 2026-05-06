@@ -16,9 +16,11 @@ interface SlicingAPIResponse {
   gcode_path: string;
   preset: string;
   material: string;
+  color: string;
   scale: number;
   actual_scale?: number;
   scale_adjusted?: boolean;
+  scale_was_capped?: boolean;
   warning?: string;
   dimensions: { width: number; height: number; depth: number };
   weight: number;
@@ -186,14 +188,20 @@ export class SlicingWorkerService {
         );
       }
 
-      // Warn if weight or print_time are suspiciously low (likely parsing failure)
-      if (result.weight < 1) {
-        console.warn(`[${jobId}] ⚠️  Weight is suspiciously low (${result.weight}g). G-code metadata parsing may have failed. Using fallback value.`);
-        result.weight = 25.0; // Reasonable default
+      // Validate weight and print_time are reasonable values
+      if (result.weight <= 0) {
+        console.error(`[${jobId}] ❌ Invalid weight: ${result.weight}g. G-code metadata parsing failed.`);
+        throw new Error(
+          `Slicing failed: Could not determine filament weight from G-code. ` +
+          `The G-code file may be missing metadata or is corrupted.`
+        );
       }
-      if (result.print_time < 5) {
-        console.warn(`[${jobId}] ⚠️  Print time is suspiciously low (${result.print_time} min). G-code metadata parsing may have failed. Using fallback value.`);
-        result.print_time = 120; // Reasonable default (2 hours)
+      if (result.print_time <= 0) {
+        console.error(`[${jobId}] ❌ Invalid print time: ${result.print_time} min. G-code metadata parsing failed.`);
+        throw new Error(
+          `Slicing failed: Could not determine print time from G-code. ` +
+          `The G-code file may be missing metadata or is corrupted.`
+        );
       }
 
       // Log warning if scale was adjusted

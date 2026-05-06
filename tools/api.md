@@ -57,23 +57,47 @@ python server.py
 
 ### Quick Start Script
 
-You can also use the provided start script:
-
 ```bash
 # Linux/Mac
 chmod +x start_server.sh
 ./start_server.sh
-
-# Windows
-start_server.bat
 ```
 
 Server will start on `http://0.0.0.0:8080`
 
+---
+
 ## API Endpoints
 
 ### 1. Health Check
-Convert STL from tmp/3d to G-code in tmp/gcode.
+
+`GET /health`
+
+Returns server status and whether PrusaSlicer is configured.
+
+```bash
+curl http://localhost:8080/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "3D Slicing API",
+  "prusaslicer_configured": true,
+  "prusaslicer_path": "/path/to/prusa-slicer"
+}
+```
+
+If PrusaSlicer is not found, `prusaslicer_configured` will be `false` and `prusaslicer_path` will be `null`.
+
+---
+
+### 2. Slice STL
+
+`POST /api/slice`
+
+Slices an STL file from `tmp/3d` and writes G-code to `tmp/gcode`.
 
 ```bash
 curl -X POST http://localhost:8080/api/slice \
@@ -89,17 +113,23 @@ curl -X POST http://localhost:8080/api/slice \
 ```
 
 **Request Body (JSON):**
-- `filename` (required): Name of the STL file in tmp/3d directory
-- `output_filename` (required): Name for the output G-code file (without .gcode extension)
-- `preset` (optional): heavy/normal/draft (default: normal)
-  - `heavy`: High quality/strength (0.1mm layer height, 40% infill, 4 perimeters)
-  - `normal`: Balanced quality (0.2mm layer height, 20% infill, 3 perimeters)
-  - `draft`: Fast/light (0.3mm layer height, 10% infill, 2 perimeters)
-- `material` (optional): pla/abs/petg/tpu/resin (default: pla)
-- `color` (optional): Material color name (e.g., white, black, red, blue, gold) (default: white)
-- `scale` (optional): Scale percentage 1-1000 (default: 100)
-  - **Note**: If scale exceeds 1000%, it will be automatically capped to 1000% with a warning
-  - **Note**: If model is too large at requested scale, it will be automatically scaled down to fit
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `filename` | string | yes | — | Name of the STL file in `tmp/3d` |
+| `output_filename` | string | yes | — | Output G-code filename (without `.gcode`) |
+| `preset` | string | no | `normal` | Print quality preset: `heavy`, `normal`, `draft` |
+| `material` | string | no | `pla` | Material type: `pla`, `abs`, `petg`, `pla+` |
+| `color` | string | no | `white` | Material color name (e.g. `white`, `black`, `red`) |
+| `scale` | number | no | `100` | Scale percentage, 1–1000 |
+
+**Presets:**
+
+| Preset | Layer Height | Infill | Perimeters | Use Case |
+|---|---|---|---|---|
+| `heavy` | 0.1 mm | 40% | 4 | High quality / strong parts |
+| `normal` | 0.2 mm | 20% | 3 | Balanced quality and speed |
+| `draft` | 0.3 mm | 10% | 2 | Fast / lightweight prints |
 
 **Response:**
 ```json
@@ -114,100 +144,115 @@ curl -X POST http://localhost:8080/api/slice \
   "scale": 100,
   "actual_scale": 100,
   "scale_adjusted": false,
-  "weight": 45.5,
+  "scale_was_capped": false,
+  "weight": 9.0,
   "dimensions": {
-    "width": 100,
-    "height": 50,
-    "depth": 75
+    "width": 28.83,
+    "height": 48.4,
+    "depth": 35.84
   },
-  "print_time": 180
+  "print_time": 34
 }
 ```
 
 **Response Fields:**
-- `status`: "success" if slicing completed
-- `scale`: The scale requested by the user
-- `actual_scale`: The actual scale used for slicing (may differ if auto-scaled)
-- `scale_adjusted`: Boolean indicating if the model was auto-scaled to fit the print bed
-- `warning`: (optional) Message explaining why the model was auto-scaled
-- `weight`: Estimated filament weight in grams
-- `dimensions`: Model dimensions in mm (width, height, depth)
-- `print_time`: Estimated print time in minutes
 
-**Auto-Scaling & Auto-Capping:**
+| Field | Type | Description |
+|---|---|---|
+| `status` | string | `"success"` when slicing completed |
+| `original_file` | string | Input STL filename |
+| `gcode_file` | string | Output G-code filename |
+| `gcode_path` | string | Absolute path to the G-code file |
+| `preset` | string | Preset used |
+| `material` | string | Material used |
+| `color` | string | Color used |
+| `scale` | number | Scale requested by the caller (%) |
+| `actual_scale` | number | Scale actually used (may differ if auto-adjusted) |
+| `scale_adjusted` | boolean | `true` if model was auto-scaled to fit the print bed |
+| `scale_was_capped` | boolean | `true` if requested scale exceeded 1000% and was capped |
+| `weight` | number | Estimated filament weight in grams (parsed from G-code) |
+| `dimensions` | object | Model dimensions in mm: `width`, `height`, `depth` |
+| `print_time` | number | Estimated print time in minutes (parsed from G-code) |
+| `warning` | string | (optional) Explanation when scale was auto-adjusted or capped |
+
+---
+
+## Auto-Scaling Behaviour
 
 The server provides two automatic scale adjustments:
 
-1. **Auto-Capping**: If requested scale > 1000%, automatically caps to 1000%
-2. **Auto-Scaling**: If model too large for print bed, automatically scales down
+1. **Auto-Capping**: If `scale` > 1000%, it is automatically capped to 1000%.
+2. **Auto-Scaling**: If the model doesn't fit the print bed at the requested scale, it is progressively scaled down until it fits (trying 50%, 25%, 10%, 5%, 1% of the original scale).
 
-Both adjustments include:
-- `scale_adjusted: true`
-- `actual_scale`: The scale that was actually used
-- `warning`: A message explaining the adjustment
+Both cases set `scale_adjusted: true`, populate `actual_scale` with the scale used, and include a `warning` message.
 
-Example with auto-capping:
+**Example — scale capped:**
 ```json
 {
   "status": "success",
   "scale": 1500,
   "actual_scale": 1000,
   "scale_adjusted": true,
-  "warning": "Requested scale 1500.00% (15.00x) exceeds maximum. Automatically using maximum scale 1000.00% (10.00x).",
-  ...
+  "scale_was_capped": true,
+  "warning": "Requested scale 1500.00% (15.00x) exceeds maximum. Automatically using maximum scale 1000.00% (10.00x)."
 }
 ```
 
-Example with auto-scaling:
+**Example — auto-scaled to fit bed:**
 ```json
 {
   "status": "success",
   "scale": 500,
   "actual_scale": 50,
   "scale_adjusted": true,
-  "warning": "Model was automatically scaled down from 500.0% (5.00x) to 50.0% (0.50x) to fit the print bed.",
-  ...
+  "scale_was_capped": false,
+  "warning": "Model was automatically scaled down from 500.00% (5.00x) to 50.00% (0.5000x) to fit the print bed."
 }
 ```
 
-## Directory Structure
+---
 
-The API uses a structured tmp directory:
+## Directory Structure
 
 ```
 tmp/
-├── 3d/          # Input STL files
-└── gcode/       # Output G-code files
+├── 3d/       # Input STL files
+└── gcode/    # Output G-code files
 ```
 
-## Example Usage (Python)
+Files must be placed in `tmp/3d` before calling `/api/slice`. Output G-code is written to `tmp/gcode`.
+
+---
+
+## Example Usage
+
+### Python
 
 ```python
 import requests
-import json
 
-# Slice a model
 response = requests.post(
     'http://localhost:8080/api/slice',
-    headers={'Content-Type': 'application/json'},
-    data=json.dumps({
+    json={
         'filename': 'model.stl',
         'output_filename': 'my_print',
         'material': 'pla',
         'color': 'white',
-        'preset': 'normal'
-    })
+        'preset': 'normal',
+        'scale': 100
+    }
 )
 result = response.json()
-print(f"G-code saved to: {result['gcode_path']}")
-print(f"Weight: {result['weight']}g, Print time: {result['print_time']} minutes")
+print(f"G-code: {result['gcode_path']}")
+print(f"Weight: {result['weight']}g")
+print(f"Print time: {result['print_time']} minutes")
+print(f"Dimensions: {result['dimensions']}")
 ```
 
-## Example Usage (JavaScript)
+### JavaScript
 
 ```javascript
-// Slice a model
-const sliceResponse = await fetch('http://localhost:8080/api/slice', {
+const res = await fetch('http://localhost:8080/api/slice', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -215,38 +260,27 @@ const sliceResponse = await fetch('http://localhost:8080/api/slice', {
     output_filename: 'my_print',
     material: 'pla',
     color: 'white',
-    preset: 'normal'
+    preset: 'normal',
+    scale: 100
   })
 });
-const sliceResult = await sliceResponse.json();
-console.log('G-code ready:', sliceResult.gcode_file);
-console.log('Weight:', sliceResult.weight, 'g');
-console.log('Print time:', sliceResult.print_time, 'minutes');
+const result = await res.json();
+console.log('G-code:', result.gcode_file);
+console.log('Weight:', result.weight, 'g');
+console.log('Print time:', result.print_time, 'minutes');
 ```
 
-## Notes
-
-- Maximum file size: 200MB
-- Supported formats: STL
-- Files must be placed in tmp/3d directory before calling the API
-- G-code output is saved to tmp/gcode directory
-- All dimensions are automatically scaled to fit within 200mm (20cm)
-- The server processes requests synchronously (one task at a time)
-- Weight, dimensions, and print time are extracted from G-code metadata
+---
 
 ## Error Handling
 
-The API returns different HTTP status codes based on the error type:
+### 400 — Scale Too Small
 
-### 400 Bad Request - Invalid Scale
-Returned when the scale factor is below the minimum (1%).
+Returned when `scale` is below 1%.
 
-**Note**: Scales above 1000% are automatically capped to 1000% with a warning, not rejected.
-
-**Scale Too Small:**
 ```json
 {
-  "error": "Scale is too small. The minimum scale is 1% but you provided 0.5%. Please use a scale between 1% and 1000%.",
+  "error": "Scale is too small. The minimum scale is 1% (0.01x) but you provided 0.5% (0.01x). Please use a scale between 1% and 1000%.",
   "error_type": "invalid_scale",
   "min_scale": 1,
   "max_scale": 1000,
@@ -254,34 +288,44 @@ Returned when the scale factor is below the minimum (1%).
 }
 ```
 
-### 400 Bad Request - Invalid Model
-Returned when the 3D model file has invalid geometry and cannot be sliced.
+> Scales above 1000% are automatically capped, not rejected.
+
+### 400 — Invalid Model
+
+Returned when the STL has invalid geometry that cannot be sliced.
 
 ```json
 {
-  "error": "The 3D model file has invalid geometry and cannot be sliced. This usually means the file is corrupted or has structural issues. Please try re-exporting the model from your 3D design software, or use a different STL file.",
+  "error": "The 3D model file has invalid geometry and cannot be sliced.",
   "error_type": "invalid_model"
 }
 ```
 
-**Common causes:**
-- Corrupted STL file
-- Non-manifold geometry (holes, gaps, or overlapping faces)
-- Invalid mesh structure
-- File exported incorrectly from 3D software
+Common causes: corrupted file, non-manifold geometry, bad mesh export.  
+Solutions: re-export from your CAD tool, or repair with Meshmixer / Netfabb.
 
-**Solutions:**
-- Re-export the model from your 3D design software
-- Use mesh repair tools (e.g., Meshmixer, Netfabb)
-- Verify the model opens correctly in a 3D viewer
-- Try a different STL file
-
-### 500 Internal Server Error - Slicing Failed
-Returned when slicing fails due to server issues.
+### 404 — File Not Found
 
 ```json
 {
-  "error": "Error message",
+  "error": "File not found in tmp/3d: model.stl"
+}
+```
+
+### 500 — Slicing Failed
+
+```json
+{
+  "error": "PrusaSlicer exited with code 1. ...",
   "error_type": "slicing_failed"
 }
 ```
+
+---
+
+## Notes
+
+- Maximum file size: 200 MB
+- Supported input format: STL
+- Requests are processed synchronously (one at a time)
+- `weight`, `dimensions`, and `print_time` are parsed directly from PrusaSlicer's G-code output comments
