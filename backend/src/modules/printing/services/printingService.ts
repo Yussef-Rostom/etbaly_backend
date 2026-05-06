@@ -91,12 +91,41 @@ export class PrintingService {
   }
 
   /**
-   * Retrieves queued PrintingJobs
+   * Retrieves PrintingJobs with optional status filtering, pagination, and sorting
    * 
-   * @returns Array of PrintingJob documents with status "Queued"
+   * @param queryStr - Query parameters for filtering, sorting, and pagination
+   * @returns Object with jobs array and total count
    */
-  static async getQueuedPrintingJobs(): Promise<IPrintingJob[]> {
-    return await PrintingJob.find({ status: "Queued" }).sort({ createdAt: -1 });
+  static async getQueuedPrintingJobs(queryStr: Record<string, any>): Promise<{ jobs: IPrintingJob[]; total: number }> {
+    // Default to Queued status if not specified
+    const baseFilter: any = {};
+    if (!queryStr.status) {
+      baseFilter.status = "Queued";
+    }
+    
+    const features = new (await import("#src/utils/apiFeatures")).APIFeatures(
+      PrintingJob.find(baseFilter),
+      queryStr
+    )
+      .filter()
+      .sort();
+
+    // Only apply pagination if limit is explicitly provided
+    if (queryStr.limit || queryStr.page) {
+      features.paginate();
+    }
+
+    const countFeatures = new (await import("#src/utils/apiFeatures")).APIFeatures(
+      PrintingJob.find(baseFilter),
+      queryStr
+    ).filter();
+
+    const [jobs, total] = await Promise.all([
+      features.query,
+      countFeatures.query.countDocuments(),
+    ]);
+
+    return { jobs, total };
   }
 
   /**

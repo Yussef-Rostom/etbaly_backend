@@ -81,26 +81,66 @@ Approves or rejects a PrintingJob in `"Pending Review"` status.
 
 ---
 
-### `GET /api/v1/printing/queued`
+### `GET /api/v1/printing/jobs`
 
 - **Access:** Admin or Operator
 
-Returns all PrintingJobs with status `"Queued"`.
+Returns PrintingJobs with optional status filtering. Supports pagination, sorting, and filtering.
 
-**Response 200 — OK**
+**Query Parameters**
+
+- **`status`** (*string*, Optional) — Filter by job status
+  - *Options:* `"Pending Review"`, `"Approved"`, `"Rejected"`, `"Queued"`, `"Processing"`, `"Completed"`, `"Failed"`
+  - *Default:* `"Queued"` (if not specified)
+  - *Example:* `status=Processing` returns only jobs currently being printed
+  - *Example:* `status=Pending Review` returns jobs awaiting admin review
+
+- **`page`** (*number*, Optional) — Page number (only applies if limit is provided)
+- **`limit`** (*number*, Optional) — Results per page (if not provided, returns all results)
+- **`sort`** (*string*, Optional) — Sort field (e.g. `createdAt`, `-createdAt`, default: `-createdAt`)
+
+**Response 200 — OK (Queued Jobs - Default)**
 ```json
 {
   "success": true,
-  "message": "Queued printing jobs retrieved successfully.",
+  "message": "Printing jobs retrieved successfully.",
   "data": {
+    "total": 25,
+    "results": 25,
     "jobs": [
       {
         "_id": "64f1a2b3c4d5e6f7a8b9c0d1",
         "status": "Queued",
         "gcodeUrl": "https://storage.example.com/gcode/model.gcode",
         "fileName": "model.stl",
+        "slicingJobId": "64f1a2b3c4d5e6f7a8b9c0d2",
         "createdAt": "2024-01-15T10:30:00Z",
         "updatedAt": "2024-01-15T10:35:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Response 200 — OK (Filtered by Status)**
+```json
+{
+  "success": true,
+  "message": "Printing jobs retrieved successfully.",
+  "data": {
+    "total": 5,
+    "results": 5,
+    "jobs": [
+      {
+        "_id": "64f1a2b3c4d5e6f7a8b9c0d3",
+        "status": "Processing",
+        "gcodeUrl": "https://storage.example.com/gcode/model2.gcode",
+        "fileName": "model2.stl",
+        "slicingJobId": "64f1a2b3c4d5e6f7a8b9c0d4",
+        "machineId": "PRINTER-01",
+        "startedAt": "2024-01-15T11:00:00Z",
+        "createdAt": "2024-01-15T10:30:00Z",
+        "updatedAt": "2024-01-15T11:00:00Z"
       }
     ]
   }
@@ -330,8 +370,20 @@ Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "action": "approve" }
 # → status: "Queued"
 
-# Step 3: Admin gets queued jobs
-GET /api/v1/printing/queued
+# Step 3: Admin gets queued jobs (default behavior)
+GET /api/v1/printing/jobs
+Authorization: Bearer <admin-token>
+
+# Get jobs pending review
+GET /api/v1/printing/jobs?status=Pending Review
+Authorization: Bearer <admin-token>
+
+# Get jobs currently processing
+GET /api/v1/printing/jobs?status=Processing
+Authorization: Bearer <admin-token>
+
+# Get completed jobs with pagination
+GET /api/v1/printing/jobs?status=Completed&page=1&limit=20
 Authorization: Bearer <admin-token>
 
 # Step 4: Admin starts printing

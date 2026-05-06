@@ -27,15 +27,17 @@ export class PrintingController {
   );
 
   /**
-   * @desc    Get queued printing jobs
-   * @route   GET /api/v1/printing/queued
+   * @desc    Get printing jobs with optional status filtering and pagination
+   * @route   GET /api/v1/printing/jobs
    * @access  Admin only
    */
   public static getQueuedJobs = catchAsync(
     async (req: Request, res: Response): Promise<void> => {
-      const jobs = await PrintingService.getQueuedPrintingJobs();
+      const { jobs, total } = await PrintingService.getQueuedPrintingJobs(req.query);
 
-      sendSuccess(res, 200, "Queued printing jobs retrieved successfully.", {
+      sendSuccess(res, 200, "Printing jobs retrieved successfully.", {
+        total,
+        results: jobs.length,
         jobs,
       });
     },

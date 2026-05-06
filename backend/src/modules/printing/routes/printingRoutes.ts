@@ -25,7 +25,7 @@ router
   );
 
 router
-  .route("/queued")
+  .route("/jobs")
   .get(restrictTo("admin"), PrintingController.getQueuedJobs);
 
 router
