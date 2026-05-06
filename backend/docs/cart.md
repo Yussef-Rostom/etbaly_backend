@@ -511,7 +511,13 @@ Removes all items from the cart and resets the pricing summary. The cart documen
 
 Converts the current cart into an order and creates printing jobs for each cart item. The cart must contain at least one item with a valid slicing job reference. Prices are locked from the cart (no recalculation). The cart is deleted after successful checkout.
 
-**Important:** This endpoint automatically creates PrintingJobs (status: "Pending Review") for each cart item quantity. For example, if a cart item has quantity 3, three separate printing jobs will be created.
+**Important:** This endpoint automatically creates PrintingJobs for each cart item quantity. The initial status depends on the item type:
+- **Product items**: Created with status `"Queued"` (pre-approved, ready for printing)
+- **Design items**: Created with status `"Pending Review"` (requires admin approval)
+
+For example, if a cart contains:
+- 3 units of a Product → 3 PrintingJobs with status "Queued"
+- 2 units of a Design → 2 PrintingJobs with status "Pending Review"
 
 **Request Body (JSON)**
 

@@ -61,6 +61,9 @@ export const getOrCreateImagesFolder = () => getOrCreateFolder("images");
 /** Resolves (or creates) the designs subfolder. */
 export const getOrCreateDesignsFolder = () => getOrCreateFolder("designs");
 
+/** Resolves (or creates) the gcode subfolder. */
+export const getOrCreateGcodeFolder = () => getOrCreateFolder("gcode");
+
 /**
  * Uploads an image buffer to the images subfolder and returns fileId + public URL.
  */
@@ -207,6 +210,44 @@ export const uploadDesignFile = async (
   const fileId = response.data.id;
   if (!fileId) {
     throw new AppError("Failed to upload design file to Google Drive.", 500);
+  }
+
+  await drive.permissions.create({
+    fileId,
+    requestBody: { role: "reader", type: "anyone" },
+  });
+
+  return {
+    fileId,
+    publicUrl: `https://drive.google.com/uc?export=view&id=${fileId}`,
+  };
+};
+
+/**
+ * Uploads a G-code file to the gcode subfolder and returns fileId + public URL.
+ */
+export const uploadGcodeFile = async (
+  fileBuffer: Buffer,
+  fileName: string,
+): Promise<{ fileId: string; publicUrl: string }> => {
+  const folderId = await getOrCreateGcodeFolder();
+  const stream = Readable.from(fileBuffer);
+
+  const response = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      parents: [folderId],
+    },
+    media: {
+      mimeType: "text/plain", // G-code is plain text
+      body: stream,
+    },
+    fields: "id",
+  });
+
+  const fileId = response.data.id;
+  if (!fileId) {
+    throw new AppError("Failed to upload G-code file to Google Drive.", 500);
   }
 
   await drive.permissions.create({

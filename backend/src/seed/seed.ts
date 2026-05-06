@@ -6,7 +6,6 @@ import { Design } from "#src/models/Design";
 import { Product } from "#src/models/Product";
 import { Cart } from "#src/models/Cart";
 import { Order } from "#src/models/Order";
-import { ManufacturingJob } from "#src/models/ManufacturingJob";
 import { Upload } from "#src/models/Upload";
 
 import { usersData } from "./data/users";
@@ -21,7 +20,6 @@ const tableMap: Record<string, { model: { deleteMany: Function }; seed?: Functio
   products:         { model: Product },
   carts:            { model: Cart },
   orders:           { model: Order },
-  manufacturingjobs:{ model: ManufacturingJob },
   uploads:          { model: Upload },
 };
 

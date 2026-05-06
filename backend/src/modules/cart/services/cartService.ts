@@ -517,6 +517,11 @@ export class CartService {
         (oi) => oi.itemRefId.toString() === item.itemRefId.toString(),
       );
 
+      // Determine initial status based on item type
+      // - Product items: go directly to "Queued" (pre-approved)
+      // - Design items: go to "Pending Review" (need approval)
+      const initialStatus = item.itemType === "Product" ? "Queued" : "Pending Review";
+
       // Create one printing job per unit quantity
       for (let i = 0; i < item.quantity; i++) {
         await PrintingService.createPrintingJob({
@@ -525,6 +530,7 @@ export class CartService {
           orderItemId: orderItem?._id as any,
           gcodeUrl: slicingJob.gcodeUrl,
           fileName: slicingJob.fileName || `${item.itemRefId}-${i + 1}.gcode`,
+          initialStatus,
         });
       }
     }

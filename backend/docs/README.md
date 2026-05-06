@@ -18,7 +18,7 @@
 - [Cart](./cart.md) — Cart management and checkout
 - [Orders](./orders.md) — Order history, order tracking, and admin order management
 - [Materials](./materials.md) — Material catalog and pricing management for 3D printing
-- [Slicing](./slicing.md) — Automated slicing job management (STL to G-code conversion) with weight, dimensions, print time, and price calculation
+- [Slicing](./slicing.md) — Automated slicing job management (STL to G-code conversion) with weight, dimensions, print time, price calculation, auto-scaling for oversized models, and auto-capping for scales > 1000%
 - [Printing](./printing.md) — Manual printing job workflow with approval and execution
 - [AI Generation](./ai.md) — Lightning AI service URL management for AI-powered content generation
 - [Files](./files.md) — Google Drive file proxy for CORS/Auth bypass
@@ -376,21 +376,6 @@ Complete shapes of all MongoDB documents returned by the API.
 - **`gcodeUrl`** — String (required, URL to G-code file copied from SlicingJob)
 - **`machineId`** — Optional string (3D printer identifier)
 - **`fileName`** — String (required, copied from SlicingJob)
-- **`startedAt`** / **`finishedAt`** — Optional Dates
-- **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
-
-### ManufacturingJob (Legacy)
-
-> **Note:** This model is deprecated. Use SlicingJob and PrintingJob instead.
-
-- **`_id`** — MongoDB ObjectId
-- **`jobNumber`** — Unique string
-- **`targetOrderItemId`** — ObjectId (ref to an order item)
-- **`orderId`** — ObjectId ref → Order
-- **`operatorId`** — Optional ObjectId ref → User
-- **`status`** — `"Queued"` | `"Slicing"` | `"Printing"` | `"Done"` | `"Failed"` (default: `"Queued"`)
-- **`machineId`** — Optional string
-- **`gcodeUrl`** — Optional string (URL to generated G-code file)
 - **`startedAt`** / **`finishedAt`** — Optional Dates
 - **`createdAt`** / **`updatedAt`** — ISO 8601 timestamps
 

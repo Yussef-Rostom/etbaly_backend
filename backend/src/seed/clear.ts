@@ -8,7 +8,6 @@ import { Design } from "#src/models/Design";
 import { Product } from "#src/models/Product";
 import { Cart } from "#src/models/Cart";
 import { Order } from "#src/models/Order";
-import { ManufacturingJob } from "#src/models/ManufacturingJob";
 import { Upload } from "#src/models/Upload";
 
 const tableMap: Record<string, { model: { deleteMany: Function }; label: string }> = {
@@ -18,7 +17,6 @@ const tableMap: Record<string, { model: { deleteMany: Function }; label: string 
   products:         { model: Product,         label: "Products" },
   carts:            { model: Cart,            label: "Carts" },
   orders:           { model: Order,           label: "Orders" },
-  manufacturingjobs:{ model: ManufacturingJob,label: "ManufacturingJobs" },
   uploads:          { model: Upload,          label: "Uploads" },
 };
 

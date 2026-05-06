@@ -21,6 +21,8 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 - **Per-user job tracking**: Each user gets their own SlicingJob record with userId
 - Cost optimization by avoiding redundant slicing operations
 - Automatic fallback to mock simulation if worker server is unavailable
+- **Auto-scaling**: Models too large automatically scaled down
+- **Auto-capping**: Scales > 1000% automatically capped with warning
 
 **Workflow:**
 ```
@@ -29,8 +31,13 @@ The slicing module manages automated conversion of 3D models (STL files) into ma
 3. Job dispatched to SLICING queue
 4. BullMQ worker picks up job
 5. Worker updates status to "Processing"
-6. Worker downloads STL from Google Drive and calls external slicing API
-7. Worker updates status to "Completed" (with gcodeUrl, weight, dimensions, printTime, calculatedPrice) or "Failed"
+6. Worker downloads STL from Google Drive
+7. Worker calls Python slicer API
+   ├─ Validates scale (1-1000%)
+   ├─ Builds PrusaSlicer command
+   ├─ Executes with retries
+   └─ Extracts weight, dimensions, time
+8. Worker updates status to "Completed" (with gcodeUrl, weight, dimensions, printTime, calculatedPrice) or "Failed"
 ```
 
 ---
@@ -69,6 +76,29 @@ Creates a SlicingJob and dispatches it to the automated slicing queue for proces
 - **`scale`** (*number*, Optional)
   - *Validation:* Number between 1 and 1000 (percentage)
   - *Description:* Scale percentage for the model (e.g., `100` = original size, `50` = half size, `200` = double size)
+  - *Note:* If scale exceeds 1000%, it will be **automatically capped to 1000%** with a warning message
+  - *Note:* If the model is too large to fit the print bed at the requested scale, it will be **automatically scaled down** to fit. The actual scale used will be returned in the response.
+
+**Auto-Scaling & Auto-Capping Behavior:**
+
+The slicing service provides two automatic scale adjustments:
+
+1. **Auto-Capping**: If requested scale > 1000%, automatically caps to 1000%
+   - Response includes warning message
+   - `scale_adjusted: true`
+   - `actual_scale`: 1000
+
+2. **Auto-Scaling**: If model too large for print bed, automatically scales down
+   - Tries progressively smaller scales: 50%, 25%, 10%, 5%, 1% of requested scale
+   - Uses the first scale that fits the print bed
+   - Returns the actual scale used in the response with a warning message
+
+The response will include additional fields when adjustment occurs:
+- `actual_scale`: The actual scale used (may be smaller than requested)
+- `scale_adjusted`: Boolean indicating if adjustment occurred
+- `warning`: Message explaining the adjustment
+
+If the model doesn't fit even at 1% scale, the slicing job will fail with an error message.
 
 **Response 200 — OK (New Job)**
 ```json

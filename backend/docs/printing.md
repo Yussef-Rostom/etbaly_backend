@@ -21,14 +21,17 @@ The printing module manages manual physical 3D printing workflows with admin app
 **Workflow:**
 ```
 1. User completes cart checkout
-   → PrintingJobs created automatically (status: "Pending Review"), one per cart item quantity
+   → PrintingJobs created automatically with status based on item type:
+     • Product items: status "Queued" (pre-approved, ready for printing)
+     • Design items: status "Pending Review" (requires admin approval)
    → Each PrintingJob stores orderId + orderItemId for status sync
-2. Admin calls POST /review → Approve (→ "Approved") or Reject (→ "Rejected")
-3. Admin calls POST /queue → "Queued" (ready for printing)
-4. Admin calls POST /start → "Processing" (sets startedAt)
+2. For Design items only:
+   Admin calls POST /review → Approve (→ "Approved") or Reject (→ "Rejected")
+   Admin calls POST /queue → "Queued" (ready for printing)
+3. Admin calls POST /start → "Processing" (sets startedAt)
    → Order item status updated to "Printing"
    → Admin downloads G-code from gcodeUrl and manually sends to printer
-5. Admin calls POST /complete → "Completed" (sets finishedAt)
+4. Admin calls POST /complete → "Completed" (sets finishedAt)
    → Order item status updated to "Ready"
    OR POST /fail → "Failed"
 ```
@@ -378,8 +381,13 @@ Returns a single PrintingJob with full population — slicing job details (STL U
 
 **Status Flow:**
 ```
-Pending Review → Approved (approve) → Queued (queue) → Processing → Completed
-              → Rejected (reject)                                 → Failed
+Product items:
+  Checkout → Queued → Processing → Completed
+                                 → Failed
+
+Design items:
+  Checkout → Pending Review → Approved → Queued → Processing → Completed
+                           → Rejected                        → Failed
 ```
 
 **Terminal states:** `Rejected`, `Completed`, `Failed`
@@ -394,16 +402,18 @@ Authorization: Bearer <token>
   "shippingAddress": { "street": "123 Main St", "city": "Cairo", "country": "Egypt", "zip": "12345" },
   "paymentMethod": "Card"
 }
-# → PrintingJobs created for each cart item unit (status: "Pending Review")
+# → PrintingJobs created for each cart item unit
+# → Product items: status "Queued" (skip review, ready for printing)
+# → Design items: status "Pending Review" (need admin approval)
 # → Each job stores orderId + orderItemId
 
-# Step 2: Admin reviews
+# Step 2: Admin reviews Design items only
 POST /api/v1/printing/review
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "action": "approve" }
 # → status: "Approved"
 
-# Step 3: Admin queues the approved job
+# Step 3: Admin queues the approved Design job
 POST /api/v1/printing/queue
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1" }

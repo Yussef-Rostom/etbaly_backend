@@ -43,7 +43,7 @@ export class MaterialAdminController {
         name: name as string,
         type: type as string,
         currentPricePerGram: currentPricePerGram as number,
-        color: color as string | undefined,
+        color: (color as string) || "White", // Provide default color
         isActive: isActive as boolean | undefined,
       });
 

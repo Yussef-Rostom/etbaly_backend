@@ -35,7 +35,9 @@ describe("OrderService", () => {
     it("returns an empty array when the user has no orders", async () => {
       // Arrange
       mockFind.mockReturnValue({
-        sort: jest.fn().mockResolvedValue([]),
+        populate: jest.fn().mockReturnValue({
+          sort: jest.fn().mockResolvedValue([]),
+        }),
       });
 
       const userId = new mongoose.Types.ObjectId().toString();
@@ -53,7 +55,9 @@ describe("OrderService", () => {
   describe("getOrderById", () => {
     it("throws AppError with status 404 when the order does not exist", async () => {
       // Arrange
-      mockFindById.mockResolvedValue(null);
+      mockFindById.mockReturnValue({
+        populate: jest.fn().mockResolvedValue(null),
+      });
 
       const user = makeUser();
       const nonExistentId = new mongoose.Types.ObjectId().toString();
@@ -79,7 +83,9 @@ describe("OrderService", () => {
         userId: otherUserId,
       };
 
-      mockFindById.mockResolvedValue(mockOrder);
+      mockFindById.mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockOrder),
+      });
 
       const orderId = mockOrder._id.toString();
 

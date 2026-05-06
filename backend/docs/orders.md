@@ -81,7 +81,8 @@ Returns all orders placed by the authenticated user, sorted newest first.
               "color": "Red",
               "scale": 100,
               "preset": "normal"
-            }
+            },
+            "printingJobs": ["Queued", "Processing"]
           }
         ],
         "shippingAddressSnapshot": {
@@ -110,6 +111,8 @@ Returns all orders placed by the authenticated user, sorted newest first.
   }
 }
 ```
+
+> **Note:** Each order item now includes a `printingJobs` array showing the status of all printing jobs for that item. Since items with `quantity > 1` create multiple printing jobs (one per unit), this array helps track the progress of each individual unit being printed.
 
 **Response 200 — No Orders**
 ```json
@@ -167,7 +170,8 @@ Returns a single order by its ID.
             "color": "Red",
             "scale": 100,
             "preset": "normal"
-          }
+          },
+          "printingJobs": ["Processing", "Completed"]
         }
       ],
       "shippingAddressSnapshot": {
@@ -198,10 +202,21 @@ Returns a single order by its ID.
 
 > `items.itemRefId` is populated with the product or design document (`name`, `images`, `thumbnailUrl`, `description`).
 
+> `items.printingJobs` is an array of printing job statuses for this order item. Each unit in the quantity creates a separate printing job, so an item with `quantity: 2` will have 2 entries in this array.
+
 **Item status values:**
 - `"Queued"` — printing job created, awaiting admin review
 - `"Printing"` — admin started the printing job
 - `"Ready"` — printing completed, item ready for shipment
+
+**Printing job status values:**
+- `"Pending Review"` — awaiting admin approval (Design items only)
+- `"Approved"` — approved by admin, ready to be queued
+- `"Rejected"` — rejected by admin
+- `"Queued"` — ready for printing
+- `"Processing"` — currently being printed
+- `"Completed"` — printing finished successfully
+- `"Failed"` — printing failed
 
 **Response 400 — Invalid ID**
 ```json
@@ -302,71 +317,4 @@ Returns a paginated list of all orders in the system, sorted newest first. Suppo
 **Response 403 — Forbidden**
 ```json
 { "success": false, "message": "You do not have permission to perform this action." }
-```
-
----
-
-### `POST /api/v1/admin/orders/:id/assign`
-
-- **Access:** Operator, Admin
-
-Assigns a specific order item to a 3D printer. Creates a `PrintingJob` document and updates the order item's status to `"Printing"`.
-
-> **Note:** This endpoint uses the legacy workflow. For new implementations, use the [Slicing](./slicing.md) and [Printing](./printing.md) modules directly.
-
-**Path Parameters**
-
-- **`:id`** (*string*, Required) — MongoDB ObjectId of the order
-
-**Request Body (JSON)**
-
-- **`orderItemId`** (*string*, Required)
-  - *Validation:* Must be a strict 24-character hex MongoDB ObjectId (Regex validated: `/^[0-9a-fA-F]{24}$/`)
-  - *Description:* The `_id` of the order item to assign
-
-- **`machineId`** (*string*, Required)
-  - *Validation:* Non-empty string (trimmed)
-  - *Description:* The identifier of the 3D printer to assign the job to
-
-**Response 201 — Created**
-```json
-{
-  "success": true,
-  "message": "Job assigned successfully",
-  "data": {
-    "job": {
-      "_id": "64f1a2b3c4d5e6f7a8b9c0e1",
-      "orderId": "64f1a2b3c4d5e6f7a8b9c0d7",
-      "targetOrderItemId": "64f1a2b3c4d5e6f7a8b9c0d8",
-      "machineId": "PRINTER-01",
-      "operatorId": "64f1a2b3c4d5e6f7a8b9c0d9",
-      "status": "Queued",
-      "createdAt": "2026-03-24T11:00:00.000Z"
-    }
-  }
-}
-```
-
-**Response 400 — Validation Error**
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "data": { "errors": [{ "field": "machineId", "message": "machineId must not be empty" }] }
-}
-```
-
-**Response 403 — Forbidden**
-```json
-{ "success": false, "message": "You do not have permission to perform this action." }
-```
-
-**Response 404 — Order Not Found**
-```json
-{ "success": false, "message": "Order not found." }
-```
-
-**Response 404 — Order Item Not Found**
-```json
-{ "success": false, "message": "Order item not found." }
 ```

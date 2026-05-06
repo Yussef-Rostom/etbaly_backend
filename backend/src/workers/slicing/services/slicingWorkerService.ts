@@ -5,7 +5,7 @@ import { SlicingService } from "#src/modules/slicing/services/slicingService";
 import { env } from "#src/configs/envConfig";
 import { Material } from "#src/models/Material";
 import Settings from "#src/models/Settings";
-import { downloadDriveFile } from "#src/utils/drive";
+import { downloadDriveFile, uploadGcodeFile } from "#src/utils/drive";
 import fs from "fs";
 import path from "path";
 
@@ -17,6 +17,9 @@ interface SlicingAPIResponse {
   preset: string;
   material: string;
   scale: number;
+  actual_scale?: number;
+  scale_adjusted?: boolean;
+  warning?: string;
   dimensions: { width: number; height: number; depth: number };
   weight: number;
   print_time: number;
@@ -77,12 +80,25 @@ export class SlicingWorkerService {
       };
     }
     if (existingJob?.status === "Failed") {
-      console.log(`[${jobId}] ⏭️  Already "Failed", skipping retry.`);
-      throw new Error(`SlicingJob ${designId} already in Failed state — skipping retry.`);
+      console.log(`[${jobId}] ⏭️  Already "Failed", returning failed result without retry.`);
+      // Return a failed result instead of throwing to prevent BullMQ retries
+      return {
+        success: false,
+        gcodeUrl: "",
+        dimensions: { width: 0, height: 0, depth: 0 },
+        weight: 0,
+        printTime: 0,
+        calculatedPrice: 0,
+        isMock: false,
+      };
     }
 
-    // Transition to Processing
-    await SlicingService.updateSlicingJobStatus(designId, "Processing");
+    // Transition to Processing (only if not already Processing)
+    if (existingJob?.status !== "Processing") {
+      await SlicingService.updateSlicingJobStatus(designId, "Processing");
+    } else {
+      console.log(`[${jobId}] ⏭️  Already "Processing", continuing...`);
+    }
     await job.updateProgress(10);
 
     // Delegate to resilient processor (real → mock fallback)
@@ -90,8 +106,9 @@ export class SlicingWorkerService {
   }
 
   /**
-   * Attempts real worker server slicing, falls back to mock if server is unavailable.
-   * Same pattern as ImageTo3dWorkerService.processWithFallback.
+   * Attempts real worker server slicing.
+   * Only falls back to mock if server is not reachable (connection refused).
+   * All slicing errors are returned to the user with detailed messages.
    */
   private static async processWithFallback(job: Job<SlicingJobData>): Promise<SlicingResult> {
     const { stlUrl, designId, material, jobId } = job.data;
@@ -130,13 +147,79 @@ export class SlicingWorkerService {
         }),
       });
 
-      if (!response.ok) throw new Error(`Worker server ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})) as any;
+        
+        // Cleanup temp file
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+          try { fs.unlinkSync(tempFilePath); } catch {}
+        }
+        
+        // Return detailed error message from server
+        const errorMessage = errorData.error || `Slicing failed with status ${response.status}`;
+        console.error(`[${jobId}] ❌ Slicing failed: ${errorMessage}`);
+        
+        // Mark job as Failed before throwing
+        try {
+          await SlicingService.updateSlicingJobStatus(designId, "Failed");
+        } catch (updateError) {
+          console.error(`[${jobId}] ❌ Failed to update status to Failed:`, updateError);
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       const result = await response.json() as SlicingAPIResponse;
       await job.updateProgress(70);
 
+      // Validate required fields from API response (check for null/undefined, not falsy)
+      if (result.weight == null || !result.dimensions || result.print_time == null) {
+        console.error(`[${jobId}] ❌ Invalid API response:`, {
+          weight: result.weight,
+          dimensions: result.dimensions,
+          print_time: result.print_time,
+          fullResponse: result
+        });
+        throw new Error(
+          `Slicing API returned incomplete data. ` +
+          `Missing: ${result.weight == null ? 'weight ' : ''}${!result.dimensions ? 'dimensions ' : ''}${result.print_time == null ? 'print_time' : ''}`
+        );
+      }
+
+      // Warn if weight or print_time are suspiciously low (likely parsing failure)
+      if (result.weight < 1) {
+        console.warn(`[${jobId}] ⚠️  Weight is suspiciously low (${result.weight}g). G-code metadata parsing may have failed. Using fallback value.`);
+        result.weight = 25.0; // Reasonable default
+      }
+      if (result.print_time < 5) {
+        console.warn(`[${jobId}] ⚠️  Print time is suspiciously low (${result.print_time} min). G-code metadata parsing may have failed. Using fallback value.`);
+        result.print_time = 120; // Reasonable default (2 hours)
+      }
+
+      // Log warning if scale was adjusted
+      if (result.scale_adjusted && result.warning) {
+        console.log(`[${jobId}] ⚠️  ${result.warning}`);
+      }
+
       const calculatedPrice = await this.calculatePrice(result.weight, result.print_time, material);
-      const gcodeUrl = result.gcode_path || result.gcode_file;
+      
+      // Upload G-code file to Google Drive
+      const gcodeLocalPath = result.gcode_path || result.gcode_file;
+      if (!gcodeLocalPath || !fs.existsSync(gcodeLocalPath)) {
+        throw new Error(`G-code file not found at path: ${gcodeLocalPath}`);
+      }
+      
+      const gcodeBuffer = fs.readFileSync(gcodeLocalPath);
+      const gcodeFileName = path.basename(gcodeLocalPath);
+      const { publicUrl: gcodeUrl } = await uploadGcodeFile(gcodeBuffer, gcodeFileName);
+      await job.updateProgress(85);
+      
+      // Clean up local G-code file after upload
+      try {
+        fs.unlinkSync(gcodeLocalPath);
+      } catch (cleanupError) {
+        console.warn(`[${jobId}] Failed to cleanup G-code file: ${cleanupError}`);
+      }
 
       await SlicingService.updateSlicingJobStatus(designId, "Completed", gcodeUrl, result.weight, result.dimensions, result.print_time, calculatedPrice);
       await job.updateProgress(100);
@@ -146,15 +229,38 @@ export class SlicingWorkerService {
       return { success: true, gcodeUrl, dimensions: result.dimensions, weight: result.weight, printTime: result.print_time, calculatedPrice, isMock: false };
 
     } catch (error: any) {
-      console.error(`[${jobId}] ⚠️  Worker server failed, falling back to mock: ${error.message}`);
-
       // Cleanup temp file
       if (tempFilePath && fs.existsSync(tempFilePath)) {
         try { fs.unlinkSync(tempFilePath); } catch {}
       }
-
-      // Fallback to mock
-      return this.processMock(job);
+      
+      // Check if this is a connection error (server not running)
+      const isConnectionError = 
+        error.code === 'ECONNREFUSED' || 
+        error.message?.includes('ECONNREFUSED') ||
+        error.message?.includes('fetch failed') ||
+        error.cause?.code === 'ECONNREFUSED';
+      
+      if (isConnectionError) {
+        console.error(`[${jobId}] ⚠️  Worker server not reachable, falling back to mock`);
+        return this.processMock(job);
+      }
+      
+      // For all other errors, fail the job and return the error to the user
+      console.error(`[${jobId}] ❌ Slicing failed: ${error.message}`);
+      
+      // Only try to update status if it wasn't already updated
+      // (e.g., if error was thrown from response.ok check above, status is already Failed)
+      try {
+        const currentJob = await SlicingService.getSlicingJobById(designId);
+        if (currentJob && currentJob.status !== "Failed") {
+          await SlicingService.updateSlicingJobStatus(designId, "Failed");
+        }
+      } catch (updateError) {
+        console.error(`[${jobId}] ❌ Failed to update status to Failed:`, updateError);
+      }
+      
+      throw error;
     }
   }
 

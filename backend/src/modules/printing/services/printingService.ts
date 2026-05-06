@@ -10,6 +10,7 @@ export interface CreatePrintingJobInput {
   gcodeUrl: string;
   fileName: string;
   operatorId?: mongoose.Types.ObjectId;
+  initialStatus?: "Pending Review" | "Queued";
 }
 
 export interface PrintingJobFilters {
@@ -23,7 +24,7 @@ export type PrintingJobStatus = "Pending Review" | "Approved" | "Rejected" | "Qu
 
 export class PrintingService {
   /**
-   * Creates a new PrintingJob document with "Pending Review" status
+   * Creates a new PrintingJob document with configurable initial status
    * 
    * @param data - The data for creating a printing job
    * @returns The created PrintingJob document
@@ -33,7 +34,7 @@ export class PrintingService {
     try {
       const printingJob = new PrintingJob({
         ...data,
-        status: "Pending Review",
+        status: data.initialStatus || "Pending Review",
       });
 
       await printingJob.save();

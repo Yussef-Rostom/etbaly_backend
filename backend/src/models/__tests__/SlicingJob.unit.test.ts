@@ -91,7 +91,9 @@ describe("SlicingJob Model", () => {
 
       await expect(job.validate()).resolves.not.toThrow();
       expect(job.weight).toBe(45.5);
-      expect(job.dimensions).toEqual({ width: 100, height: 50, depth: 75 });
+      expect(job.dimensions?.width).toBe(100);
+      expect(job.dimensions?.height).toBe(50);
+      expect(job.dimensions?.depth).toBe(75);
       expect(job.printTime).toBe(180);
       expect(job.calculatedPrice).toBe(31.14);
     });

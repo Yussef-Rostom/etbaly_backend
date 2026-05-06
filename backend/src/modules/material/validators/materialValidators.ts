@@ -4,13 +4,15 @@ export const createMaterialSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1, "Material name is required"),
     type: z.enum(["PLA", "ABS", "Resin", "TPU", "PETG"], {
-      errorMap: () => ({ message: "Material type must be one of: PLA, ABS, Resin, TPU, PETG" }),
+      message: "Material type must be one of: PLA, ABS, Resin, TPU, PETG",
     }),
     currentPricePerGram: z.number().min(0, "Price cannot be negative"),
     color: z.string().trim().min(1, "Color is required"),
     isActive: z.boolean().optional(),
   }),
 });
+
+export type CreateMaterialInput = z.infer<typeof createMaterialSchema>;
 
 export const updateMaterialSchema = z.object({
   params: z.object({
@@ -24,8 +26,12 @@ export const updateMaterialSchema = z.object({
   }),
 });
 
+export type UpdateMaterialInput = z.infer<typeof updateMaterialSchema>;
+
 export const deleteMaterialSchema = z.object({
   params: z.object({
     id: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid material ID"),
   }),
 });
+
+export type DeleteMaterialInput = z.infer<typeof deleteMaterialSchema>;
