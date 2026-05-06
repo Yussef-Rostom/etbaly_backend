@@ -3,6 +3,7 @@ import { PrintingController } from "#src/modules/printing/controllers/printingCo
 import { validate } from "#src/middlewares/validate";
 import {
   reviewPrintingJobSchema,
+  queuePrintingJobSchema,
   startPrintingJobSchema,
   completePrintingJobSchema,
   failPrintingJobSchema,
@@ -22,6 +23,14 @@ router
     restrictTo("admin"),
     validate(reviewPrintingJobSchema),
     PrintingController.reviewPrintingJob
+  );
+
+router
+  .route("/queue")
+  .post(
+    restrictTo("admin"),
+    validate(queuePrintingJobSchema),
+    PrintingController.queuePrintingJob
   );
 
 router

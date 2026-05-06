@@ -23,11 +23,12 @@ The printing module manages manual physical 3D printing workflows with admin app
 1. User completes cart checkout
    → PrintingJobs created automatically (status: "Pending Review"), one per cart item quantity
    → Each PrintingJob stores orderId + orderItemId for status sync
-2. Admin calls POST /review → Approve (→ "Queued") or Reject (→ "Rejected")
-3. Admin calls POST /start → "Processing" (sets startedAt)
+2. Admin calls POST /review → Approve (→ "Approved") or Reject (→ "Rejected")
+3. Admin calls POST /queue → "Queued" (ready for printing)
+4. Admin calls POST /start → "Processing" (sets startedAt)
    → Order item status updated to "Printing"
    → Admin downloads G-code from gcodeUrl and manually sends to printer
-4. Admin calls POST /complete → "Completed" (sets finishedAt)
+5. Admin calls POST /complete → "Completed" (sets finishedAt)
    → Order item status updated to "Ready"
    OR POST /fail → "Failed"
 ```
@@ -54,7 +55,7 @@ Approves or rejects a PrintingJob in `"Pending Review"` status.
   "message": "PrintingJob approved successfully.",
   "data": {
     "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
-    "status": "Queued"
+    "status": "Approved"
   }
 }
 ```
@@ -76,6 +77,38 @@ Approves or rejects a PrintingJob in `"Pending Review"` status.
 {
   "success": false,
   "message": "Invalid status transition. Job must be in 'Pending Review' status."
+}
+```
+
+---
+
+### `POST /api/v1/printing/queue`
+
+- **Access:** Admin only
+
+Queues an approved PrintingJob, transitioning from `"Approved"` to `"Queued"`.
+
+**Request Body (JSON)**
+
+- **`jobId`** (*string*, Required) — MongoDB ObjectId of the PrintingJob
+
+**Response 200 — OK**
+```json
+{
+  "success": true,
+  "message": "PrintingJob queued successfully.",
+  "data": {
+    "jobId": "64f1a2b3c4d5e6f7a8b9c0d1",
+    "status": "Queued"
+  }
+}
+```
+
+**Response 400 — Invalid Transition**
+```json
+{
+  "success": false,
+  "message": "Invalid status transition. Job must be in 'Approved' status."
 }
 ```
 
@@ -345,8 +378,8 @@ Returns a single PrintingJob with full population — slicing job details (STL U
 
 **Status Flow:**
 ```
-Pending Review → Queued (approve) → Processing → Completed
-              → Rejected (reject)             → Failed
+Pending Review → Approved (approve) → Queued (queue) → Processing → Completed
+              → Rejected (reject)                                 → Failed
 ```
 
 **Terminal states:** `Rejected`, `Completed`, `Failed`
@@ -368,9 +401,15 @@ Authorization: Bearer <token>
 POST /api/v1/printing/review
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "action": "approve" }
+# → status: "Approved"
+
+# Step 3: Admin queues the approved job
+POST /api/v1/printing/queue
+Authorization: Bearer <admin-token>
+{ "jobId": "64f1a2b3c4d5e6f7a8b9c0d1" }
 # → status: "Queued"
 
-# Step 3: Admin gets queued jobs (default behavior)
+# Step 4: Admin gets queued jobs (default behavior)
 GET /api/v1/printing/jobs
 Authorization: Bearer <admin-token>
 
@@ -386,18 +425,22 @@ Authorization: Bearer <admin-token>
 GET /api/v1/printing/jobs?status=Completed&page=1&limit=20
 Authorization: Bearer <admin-token>
 
-# Step 4: Admin starts printing
+# Get approved jobs (ready to be queued)
+GET /api/v1/printing/jobs?status=Approved
+Authorization: Bearer <admin-token>
+
+# Step 5: Admin starts printing
 POST /api/v1/printing/start
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1", "machineId": "PRINTER-01" }
 # → PrintingJob status: "Processing"
 # → Order item status: "Printing"
 
-# Step 5: Check job details (fully populated)
+# Step 6: Check job details (fully populated)
 GET /api/v1/printing/status/64f1a2b3c4d5e6f7a8b9c0d1
 Authorization: Bearer <admin-token>
 
-# Step 6: Admin marks complete
+# Step 7: Admin marks complete
 POST /api/v1/printing/complete
 Authorization: Bearer <admin-token>
 { "jobId": "64f1a2b3c4d5e6f7a8b9c0d1" }

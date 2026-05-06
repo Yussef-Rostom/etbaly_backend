@@ -48,7 +48,7 @@ export class PrintingService {
 
   /**
    * Reviews a PrintingJob and approves or rejects it
-   * - If approved: status transitions to "Approved" then automatically to "Queued"
+   * - If approved: status transitions to "Approved"
    * - If rejected: status transitions to "Rejected" (terminal state)
    * 
    * @param jobId - The MongoDB ObjectId of the job
@@ -75,11 +75,47 @@ export class PrintingService {
     }
 
     // Determine target status
-    const targetStatus = action === "approve" ? "Queued" : "Rejected";
+    const targetStatus = action === "approve" ? "Approved" : "Rejected";
 
     const updatedJob = await PrintingJob.findByIdAndUpdate(
       jobId,
       { status: targetStatus },
+      { returnDocument: 'after', runValidators: true }
+    );
+
+    if (!updatedJob) {
+      throw new AppError("PrintingJob not found", 404);
+    }
+
+    return updatedJob;
+  }
+
+  /**
+   * Queues an approved PrintingJob
+   * Transitions from "Approved" to "Queued"
+   * 
+   * @param jobId - The MongoDB ObjectId of the job
+   * @returns The updated PrintingJob document
+   * @throws AppError if job not found or validation fails
+   */
+  static async queuePrintingJob(jobId: string): Promise<IPrintingJob> {
+    const job = await PrintingJob.findById(jobId);
+    
+    if (!job) {
+      throw new AppError("PrintingJob not found", 404);
+    }
+
+    // Validate current status
+    if (job.status !== "Approved") {
+      throw new AppError(
+        "Invalid status transition. Job must be in 'Approved' status.",
+        400
+      );
+    }
+
+    const updatedJob = await PrintingJob.findByIdAndUpdate(
+      jobId,
+      { status: "Queued" },
       { returnDocument: 'after', runValidators: true }
     );
 

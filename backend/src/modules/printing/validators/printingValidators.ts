@@ -19,6 +19,15 @@ export const reviewPrintingJobSchema = z.object({
 
 export type ReviewPrintingJobInput = z.infer<typeof reviewPrintingJobSchema>;
 
+export const queuePrintingJobSchema = z.object({
+  jobId: z
+    .string()
+    .trim()
+    .min(1, "jobId cannot be empty"),
+});
+
+export type QueuePrintingJobInput = z.infer<typeof queuePrintingJobSchema>;
+
 export const startPrintingJobSchema = z.object({
   jobId: z
     .string()

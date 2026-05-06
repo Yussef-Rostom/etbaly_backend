@@ -27,6 +27,24 @@ export class PrintingController {
   );
 
   /**
+   * @desc    Queue an approved printing job
+   * @route   POST /api/v1/printing/queue
+   * @access  Admin only
+   */
+  public static queuePrintingJob = catchAsync(
+    async (req: Request, res: Response): Promise<void> => {
+      const { jobId } = req.body;
+
+      const updatedJob = await PrintingService.queuePrintingJob(jobId);
+
+      sendSuccess(res, 200, "PrintingJob queued successfully.", {
+        jobId: updatedJob._id,
+        status: updatedJob.status,
+      });
+    },
+  );
+
+  /**
    * @desc    Get printing jobs with optional status filtering and pagination
    * @route   GET /api/v1/printing/jobs
    * @access  Admin only
