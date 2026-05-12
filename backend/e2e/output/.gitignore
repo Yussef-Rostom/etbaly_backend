@@ -1,0 +1,7 @@
+# Ignore all generated files in output directory
+*
+
+# But keep the directory structure
+!.gitignore
+!images/.gitkeep
+!3d/.gitkeep

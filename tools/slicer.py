@@ -128,6 +128,7 @@ def parse_gcode_metadata(gcode_path: str) -> dict:
     min_x = min_y = min_z = float('inf')
     max_x = max_y = max_z = float('-inf')
     has_coordinates = False
+    filament_used_mm = None
 
     try:
         with open(gcode_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -138,11 +139,21 @@ def parse_gcode_metadata(gcode_path: str) -> dict:
         for line in lines[-500:]:
             line = line.strip()
 
+            # Try multiple formats for filament weight:
             # ; filament used [g] = 9.00
             if re.match(r';\s*filament used \[g\]', line, re.IGNORECASE):
                 match = re.search(r'=\s*([\d.]+)', line)
                 if match:
                     metadata["weight"] = round(float(match.group(1)), 2)
+                    print(f"[DEBUG] Found weight in [g] format: {metadata['weight']}g", file=sys.stderr)
+
+            # ; filament used = 123.45mm
+            # ; filament used [mm] = 123.45
+            if re.match(r';\s*filament used', line, re.IGNORECASE) and 'mm' in line.lower():
+                match = re.search(r'=\s*([\d.]+)', line)
+                if match and not metadata["weight"]:  # Only use if we don't have weight in grams
+                    filament_used_mm = float(match.group(1))
+                    print(f"[DEBUG] Found filament length: {filament_used_mm}mm", file=sys.stderr)
 
             # ; estimated printing time (normal mode) = 34m 4s  /  1h 2m 3s
             if re.match(r';\s*estimated printing time \(normal mode\)', line, re.IGNORECASE):
@@ -155,6 +166,21 @@ def parse_gcode_metadata(gcode_path: str) -> dict:
                 if s: seconds = int(s.group(1))
                 if hours or minutes or seconds:
                     metadata["print_time"] = round(hours * 60 + minutes + seconds / 60)
+                    print(f"[DEBUG] Found print time: {metadata['print_time']} minutes", file=sys.stderr)
+
+        # If we didn't find weight in grams but found filament length, calculate weight
+        if not metadata["weight"] and filament_used_mm:
+            # Calculate weight from filament length
+            # Assumptions: 1.75mm filament diameter, PLA density ~1.24 g/cm³
+            # Volume = π * r² * length = π * (0.875mm)² * length_mm
+            # Volume in cm³ = (π * 0.875² * length_mm) / 1000
+            # Weight = volume_cm³ * density
+            filament_radius_mm = 1.75 / 2.0  # 0.875mm
+            volume_mm3 = 3.14159 * (filament_radius_mm ** 2) * filament_used_mm
+            volume_cm3 = volume_mm3 / 1000.0
+            density_g_cm3 = 1.24  # PLA density
+            metadata["weight"] = round(volume_cm3 * density_g_cm3, 2)
+            print(f"[DEBUG] Calculated weight from filament length: {metadata['weight']}g", file=sys.stderr)
 
         # --- Pass 2: scan movement commands for bounding box ---
         for line in lines:
@@ -187,7 +213,7 @@ def parse_gcode_metadata(gcode_path: str) -> dict:
         print(f"[WARN] Failed to parse G-code metadata: {e}", file=sys.stderr)
     
     # Debug: Log what was parsed
-    print(f"[DEBUG] Parsed metadata: weight={metadata['weight']}, print_time={metadata['print_time']}, dimensions={metadata['dimensions']}", file=sys.stderr)
+    print(f"[DEBUG] Final parsed metadata: weight={metadata['weight']}, print_time={metadata['print_time']}, dimensions={metadata['dimensions']}", file=sys.stderr)
     
     return metadata
 
@@ -431,6 +457,9 @@ def slice_stl(
     if metadata.get("weight") is None or metadata.get("weight") == 0:
         print("[WARN] Weight not found in G-code or is 0, using default 25g", file=sys.stderr)
         metadata["weight"] = 25.0  # Default weight in grams
+    
+    # Note: PrusaSlicer's "; filament used [g]" comment already accounts for the scaled model
+    # No need to adjust weight by scale factor - it's already calculated for the final size
     
     # Ensure print_time has a default value (never 0)
     if metadata.get("print_time") is None or metadata.get("print_time") == 0:

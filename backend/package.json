@@ -17,6 +17,10 @@
     "build": "tsc",
     "start": "node dist/src/server.js",
     "test": "jest --runInBand",
+    "test:e2e": "bash scripts/check-server.sh && jest --runInBand",
+    "test:e2e:force": "jest --runInBand",
+    "test:e2e:add-product": "bash scripts/check-server.sh && jest --runInBand e2e/add-product.e2e.test.ts",
+    "test:e2e:ai-design": "bash scripts/check-server.sh && jest --runInBand e2e/ai-custom-design.e2e.test.ts",
     "seed": "tsx src/seed/seed.ts --",
     "clear": "tsx src/seed/clear.ts --",
     "seed:materials": "tsx src/seed/seedMaterials.ts"
@@ -24,27 +28,27 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
+    "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
     "moduleNameMapper": {
       "^#src/models/schemas$": "<rootDir>/src/models/schemas/index.ts",
       "^#src/(.*)$": "<rootDir>/src/$1"
     },
     "testMatch": [
-      "**/__tests__/**/*.test.ts"
+      "**/__tests__/**/*.test.ts",
+      "**/e2e/**/*.e2e.test.ts"
     ]
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.15.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.74.1",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "firebase-admin": "^13.8.0",
-    "form-data": "^4.0.5",
+    "firebase-admin": "^13.9.0",
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
@@ -69,8 +73,12 @@
     "@types/node": "^25.3.0",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.11",
+    "@types/supertest": "^7.2.0",
+    "axios": "^1.16.0",
     "fast-check": "^4.6.0",
+    "form-data": "^4.0.5",
     "jest": "^30.3.0",
+    "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"

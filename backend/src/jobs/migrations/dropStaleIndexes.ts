@@ -10,6 +10,7 @@ export const dropStaleIndexes = async (): Promise<void> => {
 
   const migrations: Array<{ collection: string; index: string }> = [
     { collection: "slicingjobs", index: "jobNumber_1" },
+    { collection: "printingjobs", index: "jobNumber_1" },
     { collection: "orders",      index: "orderNumber_1" },
   ];
 
