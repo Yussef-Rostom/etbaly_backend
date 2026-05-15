@@ -1,630 +1,276 @@
 #!/usr/bin/env python3
-"""
-slice_to_gcode.py
------------------
-Takes an STL file and exports G-code using PrusaSlicer's command-line interface.
-
-Usage:
-    python slice_to_gcode.py input.stl [output.gcode] [--config profile.ini]
-
-Requirements:
-    - PrusaSlicer installed on your system
-    - Update PRUSA_SLICER_PATH below if needed
-"""
-
-
 import subprocess
 import sys
 import os
 import argparse
 import platform
 import re
+import json
 
-# ── Adjust this path to your PrusaSlicer installation ──────────────────────
-# Default profiles for AnkerMake M5
+# ── Configuration ──────────────────────────────────────────────────────────
 DEFAULT_PRINTER = "AnkerMake M5 (0.4 mm nozzle)"
-DEFAULT_QUALITY_MAP = {
-    "draft": "0.30 mm SUPERDRAFT (0.4 mm nozzle) @ANKER",
-    "normal": "0.20 mm NORMAL (0.4 mm nozzle) @ANKER",
-    "fine": "0.10 mm HIGHDETAIL (0.4 mm nozzle) @ANKER",
-}
-# ── Preset configurations ───────────────────────────────────────────────────
-# Three categories: heavy (high quality/strength), normal, draft (fast/light)
-
-PRESETS = {
-    "heavy": {
-        "quality": "0.10 mm HIGHDETAIL (0.4 mm nozzle) @ANKER",
-        "infill": "40%",
-        "support": "tree",
-        "perimeters": "4",
-    },
-    "normal": {
-        "quality": "0.20 mm NORMAL (0.4 mm nozzle) @ANKER",
-        "infill": "20%",
-        "support": "normal",
-        "perimeters": "3",
-    },
-    "draft": {
-        "quality": "0.30 mm SUPERDRAFT (0.4 mm nozzle) @ANKER",
-        "infill": "10%",
-        "support": "normal",
-        "perimeters": "2",
-    },
-}
-
 DEFAULT_MATERIAL_MAP = {
     "pla": "Generic PLA @ANKER",
     "abs": "Generic ABS @ANKER",
     "petg": "Generic PETG @ANKER",
     "pla+": "Generic PLA+ @ANKER",
 }
-def find_prusa_slicer() -> str:
-    """Return the PrusaSlicer executable path based on the current OS."""
+PRESETS = {
+    "heavy": {"quality": "0.10 mm HIGHDETAIL (0.4 mm nozzle) @ANKER", "infill": "40%", "support": "tree", "perimeters": "4"},
+    "normal": {"quality": "0.20 mm NORMAL (0.4 mm nozzle) @ANKER", "infill": "20%", "support": "normal", "perimeters": "3"},
+    "draft": {"quality": "0.30 mm SUPERDRAFT (0.4 mm nozzle) @ANKER", "infill": "10%", "support": "normal", "perimeters": "2"},
+}
+
+def find_prusa_slicer():
     system = platform.system()
-
-    candidates = []
-
-    if system == "Windows":
-        candidates = [
-            r"C:\Users\DELL\Downloads\PrusaSlicer-2.9.4\PrusaSlicer-2.9.4\prusa-slicer-console.exe",
-            r"C:\Users\DELL\Downloads\PrusaSlicer-2.9.4\PrusaSlicer-2.9.4\prusa-slicer.exe",
-        ]
-    elif system == "Darwin":  # macOS
-        candidates = [
-            "/Applications/PrusaSlicer.app/Contents/MacOS/PrusaSlicer",
-        ]
-    else:  # Linux
-        candidates = [
-            "/usr/bin/prusa-slicer",
-            "/usr/local/bin/prusa-slicer",
-            os.path.expanduser("~/Applications/PrusaSlicer/prusa-slicer"),
-        ]
-
-    for path in candidates:
-        if os.path.isfile(path):
-            return path
-
-    # Try Flatpak installation (common on Linux)
-    flatpak_cmd = "flatpak run com.prusa3d.PrusaSlicer"
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["flatpak", "list", "--app"],
-            capture_output=True,
-            text=True,
-            timeout=5
+    
+    # Check for Flatpak installation first (common on Linux)
+    if system == "Linux":
+        flatpak_check = subprocess.run(
+            ["flatpak", "list", "--app", "--columns=application"],
+            capture_output=True, text=True
         )
-        if "com.prusa3d.PrusaSlicer" in result.stdout:
-            # Return a wrapper script that calls flatpak
-            return flatpak_cmd
-    except Exception:
-        pass
-
-    # Fall back to PATH lookup
+        if "com.prusa3d.PrusaSlicer" in flatpak_check.stdout:
+            return ["flatpak", "run", "com.prusa3d.PrusaSlicer"]
+    
+    # Check native installations
+    if system == "Windows":
+        path = r"C:\Users\DELL\Downloads\PrusaSlicer-2.9.4\PrusaSlicer-2.9.4\prusa-slicer-console.exe"
+    elif system == "Darwin":
+        path = "/Applications/PrusaSlicer.app/Contents/MacOS/PrusaSlicer"
+    else:
+        path = "/usr/bin/prusa-slicer"
+    
+    if os.path.isfile(path): return path
     import shutil
-    found = shutil.which("prusa-slicer") or shutil.which("PrusaSlicer")
-    if found:
-        return found
+    return shutil.which("prusa-slicer") or shutil.which("PrusaSlicer")
 
-    raise FileNotFoundError(
-        "PrusaSlicer executable not found. "
-        "Please install PrusaSlicer or set the path manually in find_prusa_slicer()."
-    )
+def parse_gcode_metadata(gcode_path):
+    meta = {"weight": 0.0, "dimensions": {"width": 0, "height": 0, "depth": 0}, "print_time": 0}
+    min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
+    max_x, max_y, max_z = float('-inf'), float('-inf'), float('-inf')
+    filament_length_mm = 0.0
+    
+    if not os.path.exists(gcode_path): return meta
 
+    with open(gcode_path, 'r', encoding='utf-8', errors='ignore') as f:
+        for line in f:
+            # Dimensions logic: Track min/max coordinates
+            if line.startswith(('G0 ', 'G1 ')):
+                mx, my, mz = re.search(r'X([\d.-]+)', line), re.search(r'Y([\d.-]+)', line), re.search(r'Z([\d.-]+)', line)
+                if mx: val = float(mx.group(1)); min_x, max_x = min(min_x, val), max(max_x, val)
+                if my: val = float(my.group(1)); min_y, max_y = min(min_y, val), max(max_y, val)
+                if mz: val = float(mz.group(1)); min_z, max_z = min(min_z, val), max(max_z, val)
 
-def parse_gcode_metadata(gcode_path: str) -> dict:
+            # Print Time logic
+            if 'estimated printing time' in line.lower():
+                match = re.search(r'=\s*((?P<h>\d+)h\s*)?((?P<m>\d+)m\s*)?((?P<s>\d+)s)?', line)
+                if match:
+                    h, m, s = int(match.group('h') or 0), int(match.group('m') or 0), int(match.group('s') or 0)
+                    meta["print_time"] = (h * 60) + m + (1 if s > 30 else 0)
+
+            # Weight logic - try multiple formats
+            if 'total filament used [g]' in line.lower():
+                w = re.search(r'=\s*([\d.]+)', line)
+                if w and float(w.group(1)) > 0:
+                    meta["weight"] = round(float(w.group(1)), 2)
+            elif 'filament used [g]' in line.lower() and meta["weight"] == 0:
+                w = re.search(r'=\s*([\d.]+)', line)
+                if w and float(w.group(1)) > 0:
+                    meta["weight"] = round(float(w.group(1)), 2)
+            elif 'filament used [mm]' in line.lower():
+                # Store filament length for fallback calculation
+                length_match = re.search(r'=\s*([\d.]+)', line)
+                if length_match:
+                    filament_length_mm = float(length_match.group(1))
+            elif 'filament used [cm3]' in line.lower() and meta["weight"] == 0:
+                v = re.search(r'=\s*([\d.]+)', line)
+                if v and float(v.group(1)) > 0:
+                    meta["weight"] = round(float(v.group(1)) * 1.24, 2)  # PLA density
+
+    # Fallback: Calculate weight from filament length if weight is still 0
+    if meta["weight"] == 0 and filament_length_mm > 0:
+        # Formula: weight = π × r² × length × density
+        # For 1.75mm filament: r = 0.875mm = 0.0875cm
+        # PLA density = 1.24 g/cm³
+        radius_cm = 0.0875
+        length_cm = filament_length_mm / 10.0
+        volume_cm3 = 3.14159 * (radius_cm ** 2) * length_cm
+        meta["weight"] = round(volume_cm3 * 1.24, 2)
+
+    if max_x != float('-inf'):
+        meta["dimensions"] = {
+            "width": round(max_x - min_x, 2),
+            "depth": round(max_y - min_y, 2),
+            "height": round(max_z - min_z, 2)
+        }
+    return meta
+
+def slice_stl(stl_path, output_path, extra_args=None, scale=100.0, max_scale=1000.0):
     """
-    Parse G-code file to extract weight, dimensions, and print time.
+    Slice an STL file to G-code using PrusaSlicer.
+    
+    Args:
+        stl_path: Path to input STL file
+        output_path: Path for output G-code file
+        extra_args: List of additional PrusaSlicer arguments
+        scale: Scale percentage (1-1000)
+        max_scale: Maximum allowed scale percentage
     
     Returns:
-        dict with keys: weight (grams), dimensions (dict with width/height/depth in mm), print_time (minutes)
+        dict with keys: weight, dimensions, print_time, actual_scale, scale_was_capped
     """
-    metadata = {
-        "weight": None,
-        "dimensions": {"width": None, "height": None, "depth": None},
-        "print_time": None
-    }
+    if extra_args is None:
+        extra_args = []
     
-    min_x = min_y = min_z = float('inf')
-    max_x = max_y = max_z = float('-inf')
-    has_coordinates = False
-    filament_used_mm = None
-
-    try:
-        with open(gcode_path, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
-
-        # --- Pass 1: scan tail of file for PrusaSlicer summary comments ---
-        # These appear after the last layer, typically in the last ~500 lines.
-        for line in lines[-500:]:
-            line = line.strip()
-
-            # Try multiple formats for filament weight:
-            # ; filament used [g] = 9.00
-            if re.match(r';\s*filament used \[g\]', line, re.IGNORECASE):
-                match = re.search(r'=\s*([\d.]+)', line)
-                if match:
-                    metadata["weight"] = round(float(match.group(1)), 2)
-                    print(f"[DEBUG] Found weight in [g] format: {metadata['weight']}g", file=sys.stderr)
-
-            # ; filament used = 123.45mm
-            # ; filament used [mm] = 123.45
-            if re.match(r';\s*filament used', line, re.IGNORECASE) and 'mm' in line.lower():
-                match = re.search(r'=\s*([\d.]+)', line)
-                if match and not metadata["weight"]:  # Only use if we don't have weight in grams
-                    filament_used_mm = float(match.group(1))
-                    print(f"[DEBUG] Found filament length: {filament_used_mm}mm", file=sys.stderr)
-
-            # ; estimated printing time (normal mode) = 34m 4s  /  1h 2m 3s
-            if re.match(r';\s*estimated printing time \(normal mode\)', line, re.IGNORECASE):
-                hours = minutes = seconds = 0
-                h = re.search(r'(\d+)h', line)
-                m = re.search(r'(\d+)m', line)
-                s = re.search(r'(\d+)s', line)
-                if h: hours   = int(h.group(1))
-                if m: minutes = int(m.group(1))
-                if s: seconds = int(s.group(1))
-                if hours or minutes or seconds:
-                    metadata["print_time"] = round(hours * 60 + minutes + seconds / 60)
-                    print(f"[DEBUG] Found print time: {metadata['print_time']} minutes", file=sys.stderr)
-
-        # If we didn't find weight in grams but found filament length, calculate weight
-        if not metadata["weight"] and filament_used_mm:
-            # Calculate weight from filament length
-            # Assumptions: 1.75mm filament diameter, PLA density ~1.24 g/cm³
-            # Volume = π * r² * length = π * (0.875mm)² * length_mm
-            # Volume in cm³ = (π * 0.875² * length_mm) / 1000
-            # Weight = volume_cm³ * density
-            filament_radius_mm = 1.75 / 2.0  # 0.875mm
-            volume_mm3 = 3.14159 * (filament_radius_mm ** 2) * filament_used_mm
-            volume_cm3 = volume_mm3 / 1000.0
-            density_g_cm3 = 1.24  # PLA density
-            metadata["weight"] = round(volume_cm3 * density_g_cm3, 2)
-            print(f"[DEBUG] Calculated weight from filament length: {metadata['weight']}g", file=sys.stderr)
-
-        # --- Pass 2: scan movement commands for bounding box ---
-        for line in lines:
-            line = line.strip()
-            if line.startswith('G1 ') or line.startswith('G0 '):
-                x_match = re.search(r'X([\d.-]+)', line)
-                y_match = re.search(r'Y([\d.-]+)', line)
-                z_match = re.search(r'Z([\d.-]+)', line)
-                if x_match:
-                    x = float(x_match.group(1))
-                    min_x = min(min_x, x); max_x = max(max_x, x)
-                    has_coordinates = True
-                if y_match:
-                    y = float(y_match.group(1))
-                    min_y = min(min_y, y); max_y = max(max_y, y)
-                    has_coordinates = True
-                if z_match:
-                    z = float(z_match.group(1))
-                    min_z = min(min_z, z); max_z = max(max_z, z)
-                    has_coordinates = True
-
-        if has_coordinates and min_x != float('inf') and max_x != float('-inf'):
-            metadata["dimensions"] = {
-                "width": round(abs(max_x - min_x), 2),
-                "height": round(abs(max_z - min_z), 2),
-                "depth": round(abs(max_y - min_y), 2),
-            }
-
-    except Exception as e:
-        print(f"[WARN] Failed to parse G-code metadata: {e}", file=sys.stderr)
-    
-    # Debug: Log what was parsed
-    print(f"[DEBUG] Final parsed metadata: weight={metadata['weight']}, print_time={metadata['print_time']}, dimensions={metadata['dimensions']}", file=sys.stderr)
-    
-    return metadata
-
-
-def slice_stl(
-    stl_path: str,
-    output_path: str | None = None,
-    config_path: str | None = None,
-    extra_args: list[str] | None = None,
-    printer_profile: str | None = None,
-    print_profile: str | None = None,
-    material_profile: str | None = None,
-    scale: float | None = None,
-    max_scale: float = 1000.0,
-) -> str:
-    """
-    Slice an STL file with PrusaSlicer and return the path to the G-code file.
-
-    Parameters
-    ----------
-    stl_path    : Path to the input STL file.
-    output_path : Desired output .gcode path. If None, saved next to the STL.
-    config_path : Optional PrusaSlicer .ini config/profile file.
-    extra_args  : Any additional CLI flags (e.g. ["--layer-height", "0.2"]).
-    max_scale   : Maximum allowed scale factor (default: 1000.0 = 1000%)
-
-    Returns
-    -------
-    str : Absolute path to the generated G-code file.
-    """
-    stl_path = os.path.abspath(stl_path)
-    if not os.path.isfile(stl_path):
-        raise FileNotFoundError(f"STL file not found: {stl_path}")
-    
-    # Validate scale (input is percentage: 1-1000)
-    if scale is not None and scale > max_scale:
-        # Auto-adjust to max scale instead of failing
-        print(
-            f"[WARN] Requested scale {scale}% exceeds maximum {max_scale}%. "
-            f"Automatically using {max_scale}% instead.",
-            file=sys.stderr
-        )
+    # Cap scale to maximum if needed
+    scale_was_capped = False
+    if scale > max_scale:
+        scale_was_capped = True
         scale = max_scale
-        scale_was_adjusted = True
+    
+    slicer_bin = find_prusa_slicer()
+    if not slicer_bin:
+        raise RuntimeError("PrusaSlicer not found")
+    
+    # Scale: Treat values >= 1 as percentages (e.g. 100 = 1.0x)
+    scale_multiplier = scale / 100.0
+    
+    # Build Command
+    # slicer_bin can be a list (for Flatpak) or a string (for native)
+    if isinstance(slicer_bin, list):
+        cmd = slicer_bin + ["--export-gcode"]
     else:
-        scale_was_adjusted = False
+        cmd = [slicer_bin, "--export-gcode"]
     
-    if scale is not None and scale < 1:
-        raise ValueError(
-            f"Scale is too small. The minimum scale is 1% (0.01x) but you provided {scale}% ({scale/100:.2f}x). "
-            f"Please use a scale between 1% and {max_scale}%."
-        )
-
-    def _ensure_gcode_extension(path: str) -> str:
-        root, ext = os.path.splitext(path)
-        if ext.lower() != ".gcode":
-            return root + ".gcode" if ext else path + ".gcode"
-        return path
-
-    # Determine output path
-    if output_path is None:
-        base = os.path.splitext(stl_path)[0]
-        output_path = base + ".gcode"
-    else:
-        output_path = _ensure_gcode_extension(output_path)
-    output_path = os.path.abspath(output_path)
-
-    slicer = find_prusa_slicer()
-
-    # Build the base command
-    # Check if slicer is a flatpak command
-    if slicer.startswith("flatpak run"):
-        base_cmd = slicer.split() + [
-            "--export-gcode",          # export G-code mode
-            "--output", output_path,   # output file
-        ]
-    else:
-        base_cmd = [
-            slicer,
-            "--export-gcode",          # export G-code mode
-            "--output", output_path,   # output file
-        ]
-
-    # Load printer/print/material profiles (required for proper slicing)
-    if printer_profile:
-        base_cmd += ["--printer-profile", printer_profile]
-    if print_profile:
-        base_cmd += ["--print-profile", print_profile]
-    if material_profile:
-        base_cmd += ["--material-profile", material_profile]
-
-    if config_path:
-        config_path = os.path.abspath(config_path)
-        if not os.path.isfile(config_path):
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-        base_cmd += ["--load", config_path]
-
-    if extra_args:
-        base_cmd += extra_args
+    cmd += [
+        "--output", output_path,
+        "--scale", str(scale_multiplier),
+        stl_path
+    ]
     
-    # PrusaSlicer will automatically center the model on the bed by default
-    # No need to specify --center explicitly
-
-    def _run_with(additional_args: list[str] | None = None, scale_override: float | None = None):
-        cmd = list(base_cmd)
-        if scale_override:
-            # Convert percentage to multiplier for PrusaSlicer
-            # Input: 100% -> PrusaSlicer needs: 1.0
-            # Input: 50% -> PrusaSlicer needs: 0.5
-            # Input: 200% -> PrusaSlicer needs: 2.0
-            scale_multiplier = scale_override / 100.0
-            cmd += ["--scale", str(scale_multiplier)]
-        if additional_args:
-            cmd += additional_args
-        cmd.append(stl_path)  # input file must come last
-        print(f"Running: {' '.join(cmd)}\n")
-        return subprocess.run(cmd, capture_output=True, text=True)
-
-    def _outside_print_volume(run_result: subprocess.CompletedProcess) -> bool:
-        combined = ((run_result.stdout or "") + "\n" + (run_result.stderr or "")).lower()
-        return (
-            "outside of the print volume" in combined
-            or "no outline can be derived for object" in combined
-        )
-
-    active_scale = float(scale) if scale else 100.0  # Default to 100% if no scale specified
-    result = _run_with(scale_override=active_scale)
-    actual_scale_used = active_scale  # Track the actual scale used
-
-    if result.returncode != 0 and "no extrusions in the first layer" in (result.stderr or "").lower():
-        print(
-            "[WARN] First layer has no extrusions. Retrying with safer bed-contact options...",
-            file=sys.stderr,
-        )
-
-        # Retry 1: force bed placement + brim to create first-layer material.
-        retry_args = ["--ensure-on-bed", "--brim-width", "8"]
-        retry = _run_with(retry_args, scale_override=active_scale)
-        if retry.returncode == 0:
-            result = retry
-        elif "unknown option" not in (retry.stderr or "").lower():
-            # Retry 2: add raft as a fallback for point-contact geometries.
-            retry2_args = retry_args + ["--raft-layers", "1"]
-            retry2 = _run_with(retry2_args, scale_override=active_scale)
-            if retry2.returncode == 0:
-                result = retry2
-
-    # If object is outside print volume, retry with progressively smaller scale.
-    if _outside_print_volume(result):
-        print(
-            "[WARN] Model is outside print volume. Retrying with reduced scale...",
-            file=sys.stderr,
-        )
-        scale_trials: list[float] = []
-        if active_scale is not None:
-            trial = active_scale
-        else:
-            trial = 100.0  # Start from 100% if no scale specified
-
-        # Try more aggressive scaling: 50%, 25%, 10%, 5%, 1%
-        for factor in [0.5, 0.25, 0.1, 0.05, 0.01]:
-            trial_scale = trial * factor
-            if trial_scale < 0.01:
-                break
-            scale_trials.append(round(trial_scale, 6))
-
-        successful_scale = None
-        for trial_scale in scale_trials:
-            # Add ensure-on-bed flag to help with positioning
-            retry_args = ["--ensure-on-bed"]
-            retry = _run_with(retry_args, scale_override=trial_scale)
-            if retry.stdout:
-                print(retry.stdout)
-            if retry.stderr:
-                print(retry.stderr, file=sys.stderr)
-            if retry.returncode == 0 and os.path.isfile(output_path):
-                successful_scale = trial_scale
-                actual_scale_used = trial_scale  # Update the actual scale used
-                print(f"[OK] Auto-fit scale succeeded at {trial_scale}% ({trial_scale/100:.2f}x)")
-                result = retry
-                break
-        
-        # If we found a working scale, inform the user
-        if successful_scale and active_scale and successful_scale < active_scale:
-            # Convert percentage to multiplier (e.g., 331% -> 3.31x, 3.31% -> 0.0331x)
-            original_multiplier = active_scale / 100.0
-            successful_multiplier = successful_scale / 100.0
-            print(
-                f"[INFO] Model was automatically scaled down from {active_scale:.2f}% ({original_multiplier:.2f}x) "
-                f"to {successful_scale:.2f}% ({successful_multiplier:.4f}x) to fit the print bed.",
-                file=sys.stderr
-            )
-
-    if result.stdout:
-        print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
-
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"PrusaSlicer exited with code {result.returncode}.\n"
-            f"stderr: {result.stderr}"
-        )
-
-    if not os.path.isfile(output_path):
-        if _outside_print_volume(result):
-            # Calculate what scale would be needed (estimate)
-            original_scale = active_scale if active_scale else 100.0
-            
-            # Model is too large even at smallest scale
-            print(
-                "[ERROR] Model is too large to fit the print bed even at the smallest scale.",
-                file=sys.stderr
-            )
-            raise ValueError(
-                f"The 3D model is too large to print. "
-                f"You requested {original_scale}% ({original_scale/100:.2f}x) scale, "
-                f"but the model doesn't fit the print bed even at 1% (0.01x) scale. "
-                f"Please use a smaller model or reduce the scale to less than 1%."
-            )
-        raise RuntimeError(
-            f"PrusaSlicer finished but G-code file not found at: {output_path}"
-        )
-
-    print(f"\n✅  G-code written to: {output_path}")
+    # Add extra arguments (layer height, infill, etc.)
+    cmd += extra_args
     
-    # Parse metadata from G-code
-    metadata = parse_gcode_metadata(output_path)
+    # Execute
+    process = subprocess.run(cmd, capture_output=True, text=True)
     
-    # Ensure dimensions have default values if parsing failed
-    if not metadata.get("dimensions") or metadata["dimensions"].get("width") is None:
-        print("[WARN] Dimensions not found in G-code, using defaults", file=sys.stderr)
-        # Use reasonable defaults based on typical print sizes
-        metadata["dimensions"] = {
-            "width": 50.0,
-            "height": 50.0,
-            "depth": 50.0
-        }
+    if process.returncode != 0:
+        error_msg = process.stderr if process.stderr else "PrusaSlicer failed with no error message"
+        raise RuntimeError(error_msg)
     
-    # Ensure weight has a default value (never 0)
-    if metadata.get("weight") is None or metadata.get("weight") == 0:
-        print("[WARN] Weight not found in G-code or is 0, using default 25g", file=sys.stderr)
-        metadata["weight"] = 25.0  # Default weight in grams
+    # Check if gcode file was actually created
+    if not os.path.exists(output_path):
+        raise RuntimeError(f"PrusaSlicer finished but G-code file not found at: {output_path}")
     
-    # Note: PrusaSlicer's "; filament used [g]" comment already accounts for the scaled model
-    # No need to adjust weight by scale factor - it's already calculated for the final size
+    # Parse metadata
+    final_meta = parse_gcode_metadata(output_path)
     
-    # Ensure print_time has a default value (never 0)
-    if metadata.get("print_time") is None or metadata.get("print_time") == 0:
-        print("[WARN] Print time not found in G-code or is 0, using default 120 minutes", file=sys.stderr)
-        metadata["print_time"] = 120  # Default 2 hours
+    # Validate that we have weight - fail if not
+    if final_meta["weight"] <= 0:
+        raise ValueError("Failed to parse weight from G-code. Weight is required for pricing.")
     
-    result = {
-        "gcode_path": output_path,
-        "weight": metadata["weight"],
-        "dimensions": metadata["dimensions"],
-        "print_time": metadata["print_time"],
-        "actual_scale": actual_scale_used,  # Return the actual scale used
-        "scale_was_capped": scale_was_adjusted  # Indicate if scale was capped to max
+    return {
+        "weight": final_meta["weight"],
+        "dimensions": final_meta["dimensions"],
+        "print_time": final_meta["print_time"],
+        "actual_scale": scale,
+        "scale_was_capped": scale_was_capped
     }
-    
-    return result
 
 
-# ── CLI entry point ─────────────────────────────────────────────────────────
 def main():
-    parser = argparse.ArgumentParser(
-        description="Slice an STL file with PrusaSlicer and export G-code."
-    )
-    parser.add_argument("stl", help="Path to the input STL file")
-    parser.add_argument(
-        "output", nargs="?", default=None,
-        help="Output G-code path (default: same directory as STL)"
-    )
-    parser.add_argument(
-        "--config", default=None,
-        help="PrusaSlicer config/profile .ini file"
-    )
-    # Preset: combines quality, infill, support, perimeters
-    parser.add_argument(
-        "--preset", choices=["heavy", "normal", "draft"], default="normal",
-        help="Preset: heavy (0.1mm, 40%% infill, tree support), normal (0.2mm, 20%%), draft (0.3mm, 10%%)"
-    )
-    # Material settings
-    parser.add_argument(
-        "--material", choices=["pla", "abs", "petg", "pla+"], default="pla",
-        help="Material type: pla, abs, petg, pla+"
-    )
-    # Individual overrides (optional, overrides preset values)
-    parser.add_argument(
-        "--quality-override", choices=["draft", "normal", "fine"], default=None,
-        help="Override preset quality: draft (0.30mm), normal (0.20mm), fine (0.10mm)"
-    )
-    parser.add_argument(
-        "--infill-override", choices=["light", "normal", "strong"], default=None,
-        help="Override preset infill: light (10%%), normal (20%%), strong (40%%)"
-    )
-    parser.add_argument(
-        "--support-override", choices=["none", "normal", "tree"], default=None,
-        help="Override preset support: none, normal, tree"
-    )
-    # Scale factor (important for tiny models!)
-    parser.add_argument(
-        "--scale", type=float, default=100.0,
-        help="Scale model as a percentage (default: 100 = original size)"
-    )
-    # Override specific profiles
-    parser.add_argument(
-        "--printer-profile", default=None,
-        help="Printer profile name (default: AnkerMake M5)"
-    )
-    parser.add_argument(
-        "--print-profile", default=None,
-        help="Print profile name (overrides --quality)"
-    )
-    parser.add_argument(
-        "--material-profile", default=None,
-        help="Material profile name (overrides --material)"
-    )
-    # Legacy options
-    parser.add_argument(
-        "--layer-height", default=None,
-        help="Layer height in mm (deprecated: use --quality)"
-    )
-    parser.add_argument(
-        "--fill-density", default=None,
-        help="Infill density, e.g. 15%%"
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("stl", help="Path to input STL")
+    parser.add_argument("--output", help="Optional output path")
+    parser.add_argument("--preset", choices=["heavy", "normal", "draft"], default="normal")
+    parser.add_argument("--material", choices=["pla", "abs", "petg", "pla+"], default="pla")
+    parser.add_argument("--scale", type=float, default=100.0)
     args = parser.parse_args()
 
-    # Resolve printer profile
-    printer_profile = args.printer_profile or DEFAULT_PRINTER
-
-    # Resolve preset settings
-    preset = PRESETS[args.preset]
-    print_profile = preset["quality"]
-    infill_density = preset["infill"]
-    support_mode = preset["support"]
-    perimeters = preset["perimeters"]
-
-    # Apply individual overrides (if specified)
-    quality_override_map = {
-        "draft": "0.30 mm SUPERDRAFT (0.4 mm nozzle) @ANKER",
-        "normal": "0.20 mm NORMAL (0.4 mm nozzle) @ANKER",
-        "fine": "0.10 mm HIGHDETAIL (0.4 mm nozzle) @ANKER",
-    }
-    infill_override_map = {
-        "light": "10%",
-        "normal": "20%",
-        "strong": "40%",
-    }
-
-    if args.quality_override:
-        print_profile = quality_override_map[args.quality_override]
-    if args.infill_override:
-        infill_density = infill_override_map[args.infill_override]
-    if args.support_override:
-        support_mode = args.support_override
-
-    # Resolve material profile
-    if args.material_profile:
-        material_profile = args.material_profile
+    # Path Handling
+    stl_full_path = os.path.abspath(args.stl)
+    if args.output:
+        gcode_out = os.path.abspath(args.output)
     else:
-        material_profile = DEFAULT_MATERIAL_MAP[args.material]
+        gcode_out = os.path.splitext(stl_full_path)[0] + ".gcode"
 
-    # Build extra arguments
-    extra = []
-    if args.layer_height:
-        extra += ["--layer-height", args.layer_height]
-    if args.fill_density:
-        extra += ["--fill-density", args.fill_density]
+    slicer_bin = find_prusa_slicer()
+    if not slicer_bin:
+        print(json.dumps({"status": "error", "message": "PrusaSlicer not found"}))
+        sys.exit(1)
+    
+    preset_cfg = PRESETS[args.preset]
+    
+    # Scale: Treat values >= 1 as percentages (e.g. 100 = 1.0x)
+    scale_multiplier = args.scale / 100.0
+
+    # Build Command
+    # slicer_bin can be a list (for Flatpak) or a string (for native)
+    if isinstance(slicer_bin, list):
+        cmd = slicer_bin + ["--export-gcode"]
     else:
-        extra += ["--fill-density", infill_density]
+        cmd = [slicer_bin, "--export-gcode"]
+    
+    cmd += [
+        "--output", gcode_out,
+        "--fill-density", preset_cfg["infill"],
+        "--perimeters", preset_cfg["perimeters"],
+        "--scale", str(scale_multiplier),
+        stl_full_path
+    ]
+    
+    # Add layer height based on preset
+    if args.preset == "heavy":
+        cmd += ["--layer-height", "0.1"]
+    elif args.preset == "normal":
+        cmd += ["--layer-height", "0.2"]
+    elif args.preset == "draft":
+        cmd += ["--layer-height", "0.3"]
 
-    # Perimeters from preset
-    extra += ["--perimeters", perimeters]
+    # Supports
+    if preset_cfg["support"] != "none":
+        cmd.append("--support-material")
+        if preset_cfg["support"] == "tree":
+            cmd += ["--support-material-style", "tree"]
 
-    # Support settings
-    if support_mode == "none":
-        pass
-    elif support_mode == "normal":
-        extra += ["--support-material"]
-    elif support_mode == "tree":
-        # Older/newer PrusaSlicer CLIs differ; use generic support flags
-        # so this mode remains compatible instead of failing on unknown options.
-        extra += ["--support-material"]
+    # Execute
+    process = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if process.returncode != 0:
+        error_msg = process.stderr if process.stderr else "PrusaSlicer failed with no error message"
+        print(json.dumps({"status": "error", "message": error_msg}))
+        sys.exit(1)
+    
+    # Check if gcode file was actually created
+    if not os.path.exists(gcode_out):
+        print(json.dumps({
+            "status": "error",
+            "message": f"PrusaSlicer finished but G-code file not found at: {gcode_out}"
+        }))
+        sys.exit(1)
 
-    print(f"Printer: {printer_profile}")
-    print(f"Preset: {args.preset.upper()}")
-    print(f"  Quality: {print_profile}")
-    print(f"  Infill: {infill_density}")
-    print(f"  Support: {support_mode}")
-    print(f"  Perimeters: {perimeters}")
-    print(f"Material: {material_profile}")
-    if args.scale:
-        print(f"Scale: {args.scale}%")
+    # Parse and Respond
+    final_meta = parse_gcode_metadata(gcode_out)
+    
+    # Validate that we have weight - fail if not
+    if final_meta["weight"] <= 0:
+        print(json.dumps({
+            "status": "error",
+            "message": "Failed to parse weight from G-code. Weight is required for pricing."
+        }))
+        sys.exit(1)
+    
+    response = {
+        "gcode_path": gcode_out,
+        "weight": final_meta["weight"],
+        "dimensions": final_meta["dimensions"],
+        "print_time": final_meta["print_time"],
+        "price": round((final_meta["weight"] / 1000.0) * 20.0, 2), # Assumes $20/kg
+        "actual_scale": args.scale
+    }
 
-    result = slice_stl(
-        stl_path=args.stl,
-        output_path=args.output,
-        config_path=args.config,
-        extra_args=extra or None,
-        printer_profile=printer_profile,
-        print_profile=print_profile,
-        material_profile=material_profile,
-        scale=args.scale,
-    )
-
-    import json
-    print(json.dumps(result, indent=2))
-
+    print(json.dumps(response, indent=2))
 
 if __name__ == "__main__":
     main()
